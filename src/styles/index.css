@@ -1,0 +1,185 @@
+/* ─── Google Fonts ────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ─── Local Fonts ─────────────────────────────────────────────────────────── */
+/* Built Titling is a display font used for the app title / branding */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base Styles ─────────────────────────────────────────────────────────── */
+
+@layer base {
+  html, body, #root {
+    @apply h-full w-full overflow-hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #2C2C2C;
+    background-color: #FDFCF8;
+  }
+
+  code, pre, .cm-editor {
+    font-family: 'JetBrains Mono', 'Menlo', monospace;
+  }
+}
+
+/* ─── Custom Components ───────────────────────────────────────────────────── */
+
+@layer components {
+  /* Message Bubbles */
+  .message-bubble {
+    @apply max-w-[85%] rounded-card px-4 py-3 text-sm leading-relaxed;
+  }
+
+  .message-bubble.user {
+    @apply ml-auto bg-base-200 text-base-content;
+  }
+
+  .message-bubble.assistant {
+    @apply mr-auto bg-white border border-weathered text-base-content;
+  }
+
+  /* Tool Call Cards */
+  .tool-card {
+    @apply border border-weathered rounded-card overflow-hidden text-sm;
+  }
+
+  .tool-card-header {
+    @apply bg-base-200 px-3 py-2 font-medium flex items-center justify-between cursor-pointer select-none;
+  }
+
+  .tool-card-header.success {
+    @apply bg-success/10 text-success;
+  }
+
+  .tool-card-header.error {
+    @apply bg-error/10 text-error;
+  }
+
+  /* Editor Container */
+  .editor-container {
+    @apply border border-weathered rounded-card overflow-hidden;
+  }
+
+  .editor-header {
+    @apply bg-base-200 px-3 py-2 text-sm font-medium flex items-center justify-between border-b border-weathered;
+  }
+
+  /* File Tree Items */
+  .file-tree-item {
+    @apply flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer
+           hover:bg-base-200 transition-colors duration-200;
+  }
+
+  .file-tree-item.selected {
+    @apply bg-rca-red/10 text-rca-red;
+  }
+
+  .file-tree-item.active {
+    @apply bg-base-200;
+  }
+
+  /* Conversation List Items */
+  .conversation-item {
+    @apply flex items-center gap-2 px-3 py-2.5 cursor-pointer border-l-2 border-transparent
+           hover:bg-base-200 transition-colors duration-200 text-sm;
+  }
+
+  .conversation-item.active {
+    @apply bg-base-200 border-l-rca-red;
+  }
+
+  /* Pane Dividers */
+  .pane-divider {
+    @apply bg-base-300 transition-colors duration-200;
+  }
+
+  .pane-divider:hover,
+  .pane-divider[data-resize-handle-active] {
+    @apply bg-rca-red/40;
+    box-shadow: 0 0 8px rgba(219, 30, 30, 0.2);
+  }
+}
+
+/* ─── Custom Scrollbars ───────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F4F1EA;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E5E0D5;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #CCC8BE;
+}
+
+/* ─── CodeMirror Overrides ────────────────────────────────────────────────── */
+
+.cm-editor {
+  height: 100%;
+  font-size: 13px;
+}
+
+.cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-scroller {
+  overflow: auto;
+}
+
+/* ─── Markdown Content Styling (assistant messages) ───────────────────────── */
+
+.prose a {
+  color: #DB1E1E;
+  text-decoration: underline;
+}
+
+.prose a:hover {
+  color: #A92525;
+}
+
+.prose code {
+  @apply bg-base-200 px-1 py-0.5 rounded text-sm;
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+}
+
+.prose pre {
+  @apply bg-soft-charcoal text-paper rounded-card p-4;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0;
+  color: inherit;
+}
+
+/* ─── Streaming Cursor ────────────────────────────────────────────────────── */
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background-color: #DB1E1E;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
+
+/* ─── Panel resize handle styling ─────────────────────────────────────────── */
+
+[data-panel-group-direction="horizontal"] > [data-panel-resize-handle-id] {
+  @apply w-1 bg-base-300 hover:bg-rca-red/40 transition-colors;
+}

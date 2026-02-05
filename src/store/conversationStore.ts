@@ -1,0 +1,147 @@
+import { create } from 'zustand'
+import type { Conversation, Message } from '@/types'
+import { formatError } from '@/lib/errors'
+import { useUIStore } from './uiStore'
+
+interface ConversationState {
+  conversations: Conversation[]
+  activeConversationId: string | null
+  messages: Message[]
+  isLoadingMessages: boolean
+
+  loadConversations: () => Promise<void>
+  createConversation: (partial?: Partial<Conversation>) => Promise<Conversation>
+  deleteConversation: (id: string) => Promise<void>
+  renameConversation: (id: string, title: string) => Promise<void>
+  setActiveConversation: (id: string | null) => Promise<void>
+  loadMessages: (conversationId: string) => Promise<void>
+  addMessage: (data: Omit<Message, 'id' | 'createdAt'>) => Promise<Message>
+  updateMessage: (id: string, data: Partial<Message>) => void
+}
+
+export const useConversationStore = create<ConversationState>((set, get) => ({
+  conversations: [],
+  activeConversationId: null,
+  messages: [],
+  isLoadingMessages: false,
+
+  loadConversations: async () => {
+    if (!window.redLedger) return
+    try {
+      const conversations = await window.redLedger.listConversations()
+      set({ conversations })
+    } catch (err) {
+      useUIStore.getState().addToast({
+        type: 'error',
+        message: formatError(err)
+      })
+    }
+  },
+
+  createConversation: async (partial) => {
+    if (!window.redLedger) throw new Error('API not available')
+    try {
+      const conversation = await window.redLedger.createConversation(partial || {})
+      set((state) => ({
+        conversations: [conversation, ...state.conversations],
+        activeConversationId: conversation.id,
+        messages: []
+      }))
+      return conversation
+    } catch (err) {
+      useUIStore.getState().addToast({
+        type: 'error',
+        message: formatError(err)
+      })
+      throw err
+    }
+  },
+
+  deleteConversation: async (id) => {
+    if (!window.redLedger) return
+    try {
+      await window.redLedger.deleteConversation(id)
+      const { activeConversationId } = get()
+      set((state) => ({
+        conversations: state.conversations.filter((c) => c.id !== id),
+        activeConversationId: activeConversationId === id ? null : activeConversationId,
+        messages: activeConversationId === id ? [] : state.messages
+      }))
+    } catch (err) {
+      useUIStore.getState().addToast({
+        type: 'error',
+        message: formatError(err)
+      })
+    }
+  },
+
+  renameConversation: async (id, title) => {
+    if (!window.redLedger) return
+    try {
+      await window.redLedger.updateConversation(id, { title })
+      set((state) => ({
+        conversations: state.conversations.map((c) =>
+          c.id === id ? { ...c, title } : c
+        )
+      }))
+    } catch (err) {
+      useUIStore.getState().addToast({
+        type: 'error',
+        message: formatError(err)
+      })
+    }
+  },
+
+  setActiveConversation: async (id) => {
+    set({ activeConversationId: id, messages: [], isLoadingMessages: !!id })
+
+    if (id) {
+      await get().loadMessages(id)
+    }
+  },
+
+  loadMessages: async (conversationId) => {
+    set({ isLoadingMessages: true })
+    if (!window.redLedger) { set({ isLoadingMessages: false }); return }
+    try {
+      const messages = await window.redLedger.listMessages(conversationId)
+      // Only update if this conversation is still active
+      if (get().activeConversationId === conversationId) {
+        set({ messages, isLoadingMessages: false })
+      }
+    } catch (err) {
+      set({ isLoadingMessages: false })
+      useUIStore.getState().addToast({
+        type: 'error',
+        message: formatError(err)
+      })
+    }
+  },
+
+  addMessage: async (data) => {
+    if (!window.redLedger) throw new Error('API not available')
+    try {
+      const message = await window.redLedger.createMessage(data)
+      // Optimistic append
+      set((state) => ({
+        messages: [...state.messages, message]
+      }))
+      return message
+    } catch (err) {
+      useUIStore.getState().addToast({
+        type: 'error',
+        message: formatError(err)
+      })
+      throw err
+    }
+  },
+
+  // Local-only update (for streaming content accumulation)
+  updateMessage: (id, data) => {
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === id ? { ...m, ...data } : m
+      )
+    }))
+  }
+}))

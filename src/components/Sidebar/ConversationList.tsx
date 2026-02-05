@@ -1,0 +1,143 @@
+import { useEffect, useState } from 'react'
+import { Plus, Trash2, Pencil, Check, X } from 'lucide-react'
+import { useConversationStore } from '@/store'
+import { cn, formatTimestamp, truncate } from '@/lib/utils'
+
+export function ConversationList() {
+  const conversations = useConversationStore((s) => s.conversations)
+  const activeConversationId = useConversationStore((s) => s.activeConversationId)
+  const loadConversations = useConversationStore((s) => s.loadConversations)
+  const createConversation = useConversationStore((s) => s.createConversation)
+  const deleteConversation = useConversationStore((s) => s.deleteConversation)
+  const renameConversation = useConversationStore((s) => s.renameConversation)
+  const setActiveConversation = useConversationStore((s) => s.setActiveConversation)
+
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+
+  useEffect(() => {
+    loadConversations()
+  }, [loadConversations])
+
+  const handleCreate = async () => {
+    await createConversation()
+  }
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!window.redLedger) return
+    const confirmed = await window.redLedger.showConfirmDialog({
+      title: 'Delete Conversation',
+      message: 'Delete this conversation?',
+      detail: 'This action cannot be undone.'
+    })
+    if (confirmed) {
+      await deleteConversation(id)
+    }
+  }
+
+  const handleStartRename = (id: string, currentTitle: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setRenamingId(id)
+    setRenameValue(currentTitle)
+  }
+
+  const handleConfirmRename = async () => {
+    if (renamingId && renameValue.trim()) {
+      await renameConversation(renamingId, renameValue.trim())
+    }
+    setRenamingId(null)
+  }
+
+  const handleCancelRename = () => {
+    setRenamingId(null)
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* New Chat Button */}
+      <div className="p-2">
+        <button
+          onClick={handleCreate}
+          className="btn btn-primary btn-sm w-full gap-2"
+        >
+          <Plus size={14} />
+          New Chat
+        </button>
+      </div>
+
+      {/* Conversation List */}
+      <div className="flex-1 overflow-y-auto">
+        {conversations.length === 0 ? (
+          <div className="p-4 text-center text-sm text-soft-charcoal/50">
+            No conversations yet
+          </div>
+        ) : (
+          conversations.map((conv) => (
+            <div
+              key={conv.id}
+              onClick={() => setActiveConversation(conv.id)}
+              className={cn(
+                'conversation-item group',
+                activeConversationId === conv.id && 'active'
+              )}
+            >
+              <div className="flex-1 min-w-0">
+                {renamingId === conv.id ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleConfirmRename()
+                        if (e.key === 'Escape') handleCancelRename()
+                      }}
+                      className="input input-xs input-bordered flex-1 bg-white"
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <button onClick={(e) => { e.stopPropagation(); handleConfirmRename() }} className="text-success">
+                      <Check size={14} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleCancelRename() }} className="text-error">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="font-medium truncate">
+                      {truncate(conv.title, 30)}
+                    </div>
+                    <div className="text-xs text-soft-charcoal/50 mt-0.5">
+                      {formatTimestamp(conv.updatedAt)}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Action Buttons (visible on hover) */}
+              {renamingId !== conv.id && (
+                <div className="hidden group-hover:flex items-center gap-1">
+                  <button
+                    onClick={(e) => handleStartRename(conv.id, conv.title, e)}
+                    className="p-1 rounded hover:bg-base-300 text-soft-charcoal/50 hover:text-soft-charcoal"
+                    title="Rename"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    onClick={(e) => handleDelete(conv.id, e)}
+                    className="p-1 rounded hover:bg-error/10 text-soft-charcoal/50 hover:text-error"
+                    title="Delete"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
