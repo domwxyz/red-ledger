@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useConversationStore, useSettingsStore, useUIStore } from '@/store'
 import { formatError } from '@/lib/errors'
-import type { StreamChunk, ToolCall, LLMRequest, Message } from '@/types'
+import type { StreamChunk, ToolCall, LLMRequest, Message, Attachment } from '@/types'
 
 const STREAM_THROTTLE_MS = 50
 
@@ -36,11 +36,20 @@ export function useStreaming() {
     toolCallsRef.current = []
   }, [])
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, attachments?: Attachment[]) => {
     const store = useConversationStore.getState()
     const conversationId = store.activeConversationId
     const currentSettings = useSettingsStore.getState().settings
     if (!conversationId || !currentSettings) return
+
+    // Build the full message content, appending any attachments
+    let fullContent = content
+    if (attachments && attachments.length > 0) {
+      const attachmentBlocks = attachments.map(
+        (a) => `\n\n---\n**Attached file: ${a.name}**\n\`\`\`\n${a.content}\n\`\`\``
+      )
+      fullContent = content + attachmentBlocks.join('')
+    }
 
     setIsStreaming(true)
     contentRef.current = ''
@@ -51,7 +60,7 @@ export function useStreaming() {
       await store.addMessage({
         conversationId,
         role: 'user',
-        content
+        content: fullContent
       })
 
       // 2. Build the message history for the LLM request
@@ -113,7 +122,9 @@ export function useStreaming() {
 
           case 'tool_call': {
             if (chunk.toolCall) {
-              toolCallsRef.current = [...toolCallsRef.current, chunk.toolCall]
+              // Stamp the current text length so the UI can interleave tool calls
+              const stamped = { ...chunk.toolCall, contentOffset: contentRef.current.length }
+              toolCallsRef.current = [...toolCallsRef.current, stamped]
               flushToStore()
             }
             break
@@ -122,7 +133,9 @@ export function useStreaming() {
           case 'tool_result': {
             if (chunk.toolCall) {
               toolCallsRef.current = toolCallsRef.current.map((tc) =>
-                tc.id === chunk.toolCall!.id ? chunk.toolCall! : tc
+                tc.id === chunk.toolCall!.id
+                  ? { ...chunk.toolCall!, contentOffset: tc.contentOffset }
+                  : tc
               )
               flushToStore()
             }

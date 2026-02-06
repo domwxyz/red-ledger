@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import { Paperclip } from 'lucide-react'
 import type { Message, ToolCall } from '@/types'
-import { cn } from '@/lib/utils'
 import { ToolCallCard } from './ToolCallCard'
 
 // Configure marked for GFM + line breaks
@@ -16,6 +16,79 @@ interface MessageBubbleProps {
   isStreaming?: boolean
 }
 
+/** A renderable segment: either a block of text or a tool call. */
+type Segment =
+  | { kind: 'text'; text: string; html: string }
+  | { kind: 'tool'; toolCall: ToolCall }
+
+/**
+ * Build an interleaved list of text segments and tool call cards.
+ *
+ * Each ToolCall may carry a `contentOffset` indicating where in the full
+ * `content` string the tool call was initiated. We split the text at those
+ * boundaries so tool calls appear *between* the prose they interrupted.
+ *
+ * Backward-compatible: tool calls without `contentOffset` are grouped at the top.
+ */
+function buildSegments(content: string, toolCalls: ToolCall[]): Segment[] {
+  if (toolCalls.length === 0) {
+    // No tool calls — just one text block
+    if (!content) return []
+    const html = DOMPurify.sanitize(marked.parse(content) as string)
+    return [{ kind: 'text', text: content, html }]
+  }
+
+  // Separate tool calls with offsets from legacy ones (no offset)
+  const withOffset = toolCalls.filter((tc) => tc.contentOffset !== undefined)
+  const legacy = toolCalls.filter((tc) => tc.contentOffset === undefined)
+
+  // If none have offsets, fall back to old behavior: all tool calls then text
+  if (withOffset.length === 0) {
+    const segments: Segment[] = legacy.map((tc) => ({ kind: 'tool', toolCall: tc }))
+    if (content) {
+      const html = DOMPurify.sanitize(marked.parse(content) as string)
+      segments.push({ kind: 'text', text: content, html })
+    }
+    return segments
+  }
+
+  // Sort by offset
+  const sorted = [...withOffset].sort((a, b) => a.contentOffset! - b.contentOffset!)
+
+  const segments: Segment[] = []
+
+  // Legacy tool calls first (if any)
+  for (const tc of legacy) {
+    segments.push({ kind: 'tool', toolCall: tc })
+  }
+
+  let cursor = 0
+  for (const tc of sorted) {
+    const offset = tc.contentOffset!
+    // Text before this tool call
+    if (offset > cursor) {
+      const slice = content.slice(cursor, offset)
+      if (slice.trim()) {
+        const html = DOMPurify.sanitize(marked.parse(slice) as string)
+        segments.push({ kind: 'text', text: slice, html })
+      }
+    }
+    segments.push({ kind: 'tool', toolCall: tc })
+    cursor = offset
+  }
+
+  // Remaining text after the last tool call
+  if (cursor < content.length) {
+    const slice = content.slice(cursor)
+    if (slice.trim()) {
+      const html = DOMPurify.sanitize(marked.parse(slice) as string)
+      segments.push({ kind: 'text', text: slice, html })
+    }
+  }
+
+  return segments
+}
+
 export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   // Parse tool calls from JSON string if present
   const toolCalls = useMemo<ToolCall[]>(() => {
@@ -27,50 +100,109 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
     }
   }, [message.toolCalls])
 
-  // Render assistant messages as markdown, user messages as plain text
-  const renderedContent = useMemo(() => {
-    if (message.role === 'user') return null // User messages use plain text rendering
-
-    const rawHtml = marked.parse(message.content) as string
-    const cleanHtml = DOMPurify.sanitize(rawHtml)
-    return cleanHtml
-  }, [message.content, message.role])
-
   if (message.role === 'system') return null // Don't render system messages
 
+  // Parse user message: separate text from attachment blocks
+  const userParts = useMemo(() => {
+    if (message.role !== 'user') return null
+    const separator = '\n\n---\n**Attached file: '
+    const idx = message.content.indexOf(separator)
+    if (idx === -1) return { text: message.content, attachments: [] }
+
+    const text = message.content.slice(0, idx)
+    const rest = message.content.slice(idx)
+    // Match each attachment block
+    const attachmentRegex = /\n\n---\n\*\*Attached file: (.+?)\*\*\n```\n([\s\S]*?)\n```/g
+    const attachments: { name: string; content: string }[] = []
+    let match
+    while ((match = attachmentRegex.exec(rest)) !== null) {
+      attachments.push({ name: match[1], content: match[2] })
+    }
+    return { text, attachments }
+  }, [message.content, message.role])
+
+  // User messages — show text + collapsible attachments
+  if (message.role === 'user') {
+    const { text, attachments } = userParts!
+    return (
+      <div className="flex flex-col gap-2 items-end">
+        <div className="message-bubble user">
+          {text && text !== '(see attached files)' && (
+            <pre className="whitespace-pre-wrap font-sans text-sm m-0">{text}</pre>
+          )}
+          {attachments.length > 0 && (
+            <div className={`flex flex-col gap-1 ${text && text !== '(see attached files)' ? 'mt-2' : ''}`}>
+              {attachments.map((a, i) => (
+                <details key={i} className="group">
+                  <summary className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-soft-charcoal/60 hover:text-soft-charcoal select-none list-none [&::-webkit-details-marker]:hidden">
+                    <Paperclip size={11} className="shrink-0" />
+                    <span>{a.name}</span>
+                    <span className="text-[10px] opacity-50 group-open:rotate-90 transition-transform">&#9654;</span>
+                  </summary>
+                  <pre className="whitespace-pre-wrap font-mono text-xs mt-1 p-2 bg-black/5 rounded max-h-[200px] overflow-y-auto m-0">{a.content}</pre>
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Assistant messages — interleave text and tool calls
+  const segments = useMemo(
+    () => buildSegments(message.content, toolCalls),
+    [message.content, toolCalls]
+  )
+
+  // Determine if the last segment is a text segment (for streaming cursor placement)
+  const lastSegment = segments[segments.length - 1]
+  const lastSegmentIsText = lastSegment?.kind === 'text'
+
   return (
-    <div className={cn(
-      'flex flex-col gap-2',
-      message.role === 'user' ? 'items-end' : 'items-start'
-    )}>
-      {/* Tool Call Cards (shown above assistant bubbles) */}
-      {toolCalls.length > 0 && (
-        <div className="space-y-2 max-w-[85%]">
-          {toolCalls.map((tc) => (
-            <ToolCallCard key={tc.id} toolCall={tc} />
-          ))}
+    <div className="flex flex-col gap-2 items-start">
+      {segments.map((seg, i) => {
+        if (seg.kind === 'tool') {
+          return (
+            <div key={seg.toolCall.id} className="max-w-[85%]">
+              <ToolCallCard toolCall={seg.toolCall} />
+            </div>
+          )
+        }
+
+        // Text segment
+        const isLastTextSegment = i === segments.length - 1 && seg.kind === 'text'
+        return (
+          <div
+            key={`text-${i}`}
+            className="message-bubble assistant"
+          >
+            <div
+              className="prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: seg.html }}
+            />
+            {/* Streaming cursor — only on the very last text segment */}
+            {isStreaming && isLastTextSegment && (
+              <span className="streaming-cursor" />
+            )}
+          </div>
+        )
+      })}
+
+      {/* If streaming and the last segment is a tool call (text hasn't resumed yet),
+          show cursor in a minimal bubble so the user sees activity */}
+      {isStreaming && !lastSegmentIsText && segments.length > 0 && (
+        <div className="message-bubble assistant">
+          <span className="streaming-cursor" />
         </div>
       )}
 
-      {/* Message Bubble */}
-      <div className={cn(
-        'message-bubble',
-        message.role === 'user' ? 'user' : 'assistant'
-      )}>
-        {message.role === 'user' ? (
-          <pre className="whitespace-pre-wrap font-sans text-sm m-0">{message.content}</pre>
-        ) : (
-          <div
-            className="prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: renderedContent || '' }}
-          />
-        )}
-
-        {/* Streaming cursor */}
-        {isStreaming && message.role === 'assistant' && (
+      {/* If streaming but no segments yet (very start), show cursor */}
+      {isStreaming && segments.length === 0 && (
+        <div className="message-bubble assistant">
           <span className="streaming-cursor" />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

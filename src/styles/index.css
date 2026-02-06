@@ -45,7 +45,7 @@
   }
 
   .tool-card-header {
-    @apply bg-base-200 px-3 py-2 font-medium flex items-center justify-between cursor-pointer select-none;
+    @apply bg-base-200 px-3 py-1.5 text-sm font-medium flex items-center justify-between cursor-pointer select-none;
   }
 
   .tool-card-header.success {
@@ -62,7 +62,7 @@
   }
 
   .editor-header {
-    @apply bg-base-200 px-3 py-2 text-sm font-medium flex items-center justify-between border-b border-weathered;
+    @apply bg-base-200 px-3 py-1.5 text-sm font-medium flex items-center justify-between border-b border-weathered gap-2;
   }
 
   /* File Tree Items */
@@ -81,8 +81,8 @@
 
   /* Conversation List Items */
   .conversation-item {
-    @apply flex items-center gap-2 px-3 py-2.5 cursor-pointer border-l-2 border-transparent
-           hover:bg-base-200 transition-colors duration-200 text-sm;
+    @apply flex items-center gap-2 px-3 py-2 cursor-pointer border-l-2 border-transparent
+           hover:bg-base-200/70 transition-colors duration-150 text-sm;
   }
 
   .conversation-item.active {
@@ -91,30 +91,29 @@
 
   /* Pane Dividers */
   .pane-divider {
-    @apply bg-base-300 transition-colors duration-200;
+    @apply bg-weathered transition-colors duration-200;
   }
 
   .pane-divider:hover,
   .pane-divider[data-resize-handle-active] {
-    @apply bg-rca-red/40;
-    box-shadow: 0 0 8px rgba(219, 30, 30, 0.2);
+    @apply bg-rca-red/30;
   }
 }
 
 /* ─── Custom Scrollbars ───────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F4F1EA;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #E5E0D5;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -181,5 +180,5 @@
 /* ─── Panel resize handle styling ─────────────────────────────────────────── */
 
 [data-panel-group-direction="horizontal"] > [data-panel-resize-handle-id] {
-  @apply w-1 bg-base-300 hover:bg-rca-red/40 transition-colors;
+  @apply w-1 bg-weathered hover:bg-rca-red/30 transition-colors;
 }

@@ -103,7 +103,10 @@ const api: RedLedgerAPI = {
     ipcRenderer.invoke('dialog:confirm', options),
 
   openTextFile: () =>
-    ipcRenderer.invoke('dialog:openTextFile')
+    ipcRenderer.invoke('dialog:openTextFile'),
+
+  openAttachmentFiles: () =>
+    ipcRenderer.invoke('dialog:openAttachmentFiles')
 }
 
 contextBridge.exposeInMainWorld('redLedger', api)

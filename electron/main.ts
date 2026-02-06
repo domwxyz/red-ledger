@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { join, basename } from 'path'
 import { readFileSync } from 'fs'
 import { DatabaseManager } from './ipc/db'
 import { registerContextHandlers } from './ipc/context'
@@ -97,6 +97,28 @@ function registerIpcHandlers(): void {
     } catch {
       return null
     }
+  })
+
+  // Open file dialog for attachments — returns array of { name, content } for selected files
+  ipcMain.handle('dialog:openAttachmentFiles', async () => {
+    if (!mainWindow) return []
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Attach Files',
+      filters: [
+        { name: 'Text & Markdown', extensions: ['txt', 'md'] }
+      ],
+      properties: ['openFile', 'multiSelections']
+    })
+
+    if (result.canceled || result.filePaths.length === 0) return []
+
+    return result.filePaths.map((filePath) => {
+      try {
+        return { name: basename(filePath), content: readFileSync(filePath, 'utf-8') }
+      } catch {
+        return null
+      }
+    }).filter(Boolean)
   })
 
   // Register module-specific handlers

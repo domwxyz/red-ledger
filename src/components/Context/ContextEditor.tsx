@@ -99,41 +99,41 @@ export function ContextEditor({ type, title, description }: ContextEditorProps) 
   }
 
   return (
-    <div className="editor-container">
+    <div className="editor-container flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className="editor-header">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{title}</span>
+      <div className="editor-header shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-medium text-soft-charcoal">{title}</span>
+          <span className="text-[11px] text-soft-charcoal/35 hidden sm:inline truncate">{description}</span>
           {isDirty && (
-            <span className="text-xs text-warning">&#x2022; Unsaved</span>
+            <span className="text-[11px] text-warning shrink-0">&#x2022; Unsaved</span>
           )}
           {saveStatus === 'saved' && !isDirty && (
-            <span className="text-xs text-success">&#x2713; Saved</span>
+            <span className="text-[11px] text-success shrink-0">&#x2713; Saved</span>
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 shrink-0">
           <button
             onClick={handleReset}
-            className="btn btn-ghost btn-xs text-soft-charcoal/50 hover:text-soft-charcoal"
+            className="btn btn-ghost btn-xs text-soft-charcoal/40 hover:text-soft-charcoal"
             title="Reset to default"
           >
             <RotateCcw size={12} />
           </button>
           <button
             onClick={handleLoadFromFile}
-            className="btn btn-ghost btn-xs text-soft-charcoal/50 hover:text-soft-charcoal gap-1"
+            className="btn btn-ghost btn-xs text-soft-charcoal/40 hover:text-soft-charcoal"
             title="Load from file"
           >
             <FolderOpen size={12} />
-            Load
           </button>
           <button
             onClick={handleSave}
             disabled={!isDirty}
             className={cn(
               'btn btn-xs gap-1',
-              isDirty ? 'btn-primary' : 'btn-ghost text-soft-charcoal/30'
+              isDirty ? 'btn-primary' : 'btn-ghost text-soft-charcoal/25'
             )}
             title="Save (Ctrl+S)"
           >
@@ -143,8 +143,8 @@ export function ContextEditor({ type, title, description }: ContextEditorProps) 
         </div>
       </div>
 
-      {/* Editor */}
-      <div className="h-48">
+      {/* Editor — fills remaining space */}
+      <div className="flex-1 min-h-0">
         <Editor
           value={content}
           onChange={setContent}

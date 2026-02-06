@@ -8,8 +8,8 @@ export function ChatPanel() {
   return (
     <div className="h-full flex flex-col bg-paper">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-weathered bg-paper-stack/50">
-        <h2 className="text-sm font-semibold text-soft-charcoal">
+      <div className="px-4 py-2.5 border-b border-weathered bg-paper-stack/50 flex items-center min-h-[42px]">
+        <h2 className="text-xs font-semibold text-soft-charcoal/70 uppercase tracking-wider">
           {activeConversationId ? 'Chat' : 'Red Ledger'}
         </h2>
       </div>
@@ -27,14 +27,16 @@ export function ChatPanel() {
       ) : (
         /* Empty State */
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-3">
-            <div className="text-5xl text-rca-red/20">&#9830;</div>
-            <h3 className="text-lg font-semibold text-soft-charcoal">
-              Red Ledger
-            </h3>
-            <p className="text-sm text-soft-charcoal/50 max-w-xs">
-              Create a new conversation or select one from the sidebar to get started.
-            </p>
+          <div className="text-center space-y-4">
+            <div className="text-6xl text-rca-red/15 leading-none">&#9830;</div>
+            <div>
+              <h3 className="text-base font-semibold text-soft-charcoal">
+                Red Ledger
+              </h3>
+              <p className="text-xs text-soft-charcoal/40 max-w-[240px] mt-1.5 leading-relaxed">
+                Create a new conversation or select one from the sidebar to get started.
+              </p>
+            </div>
           </div>
         </div>
       )}

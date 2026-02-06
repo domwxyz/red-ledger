@@ -37,7 +37,7 @@ export function WorkspaceTree() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-2 space-y-2">
+      <div className="p-3 pb-2 space-y-1.5">
         <button
           onClick={handleOpenFolder}
           className="btn btn-sm btn-outline w-full gap-2"
@@ -47,7 +47,7 @@ export function WorkspaceTree() {
         </button>
 
         {workspacePath && (
-          <div className="text-xs text-soft-charcoal/50 truncate px-1" title={workspacePath}>
+          <div className="text-[11px] text-soft-charcoal/40 truncate px-0.5" title={workspacePath}>
             {workspacePath}
           </div>
         )}
@@ -64,11 +64,11 @@ export function WorkspaceTree() {
         ) : files.length > 0 ? (
           <FileTree nodes={files} />
         ) : workspacePath ? (
-          <div className="p-3 text-center text-sm text-soft-charcoal/50">
+          <div className="px-4 py-8 text-center text-xs text-soft-charcoal/40">
             Empty workspace
           </div>
         ) : (
-          <div className="p-3 text-center text-sm text-soft-charcoal/50">
+          <div className="px-4 py-8 text-center text-xs text-soft-charcoal/40 leading-relaxed">
             Select a workspace folder to browse files
           </div>
         )}

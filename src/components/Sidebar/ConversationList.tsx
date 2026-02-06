@@ -56,7 +56,7 @@ export function ConversationList() {
   return (
     <div className="h-full flex flex-col">
       {/* New Chat Button */}
-      <div className="p-2">
+      <div className="p-3 pb-2">
         <button
           onClick={handleCreate}
           className="btn btn-primary btn-sm w-full gap-2"
@@ -67,9 +67,9 @@ export function ConversationList() {
       </div>
 
       {/* Conversation List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto py-1">
         {conversations.length === 0 ? (
-          <div className="p-4 text-center text-sm text-soft-charcoal/50">
+          <div className="px-4 py-8 text-center text-xs text-soft-charcoal/40">
             No conversations yet
           </div>
         ) : (
@@ -96,19 +96,19 @@ export function ConversationList() {
                       autoFocus
                       onClick={(e) => e.stopPropagation()}
                     />
-                    <button onClick={(e) => { e.stopPropagation(); handleConfirmRename() }} className="text-success">
+                    <button onClick={(e) => { e.stopPropagation(); handleConfirmRename() }} className="text-success p-0.5">
                       <Check size={14} />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); handleCancelRename() }} className="text-error">
+                    <button onClick={(e) => { e.stopPropagation(); handleCancelRename() }} className="text-error p-0.5">
                       <X size={14} />
                     </button>
                   </div>
                 ) : (
                   <>
-                    <div className="font-medium truncate">
+                    <div className="text-sm font-medium truncate leading-snug">
                       {truncate(conv.title, 30)}
                     </div>
-                    <div className="text-xs text-soft-charcoal/50 mt-0.5">
+                    <div className="text-[11px] text-soft-charcoal/40 mt-0.5 leading-tight">
                       {formatTimestamp(conv.updatedAt)}
                     </div>
                   </>
@@ -117,17 +117,17 @@ export function ConversationList() {
 
               {/* Action Buttons (visible on hover) */}
               {renamingId !== conv.id && (
-                <div className="hidden group-hover:flex items-center gap-1">
+                <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
                   <button
                     onClick={(e) => handleStartRename(conv.id, conv.title, e)}
-                    className="p-1 rounded hover:bg-base-300 text-soft-charcoal/50 hover:text-soft-charcoal"
+                    className="p-1 rounded hover:bg-base-300 text-soft-charcoal/40 hover:text-soft-charcoal transition-colors"
                     title="Rename"
                   >
                     <Pencil size={12} />
                   </button>
                   <button
                     onClick={(e) => handleDelete(conv.id, e)}
-                    className="p-1 rounded hover:bg-error/10 text-soft-charcoal/50 hover:text-error"
+                    className="p-1 rounded hover:bg-error/10 text-soft-charcoal/40 hover:text-error transition-colors"
                     title="Delete"
                   >
                     <Trash2 size={12} />

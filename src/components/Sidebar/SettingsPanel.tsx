@@ -64,10 +64,10 @@ export function SettingsPanel() {
   const activeProvider = settings.providers[settings.activeProvider]
 
   return (
-    <div className="h-full overflow-y-auto p-3 space-y-4">
+    <div className="h-full overflow-y-auto p-3 space-y-3">
       {/* Provider Selection */}
       <div>
-        <label className="text-xs font-medium text-soft-charcoal/70 mb-1 block">
+        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
           Provider
         </label>
         <select
@@ -86,7 +86,7 @@ export function SettingsPanel() {
       {/* API Key */}
       {settings.activeProvider !== 'ollama' && (
         <div>
-          <label className="text-xs font-medium text-soft-charcoal/70 mb-1 block">
+          <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
             API Key
           </label>
           <input
@@ -112,7 +112,7 @@ export function SettingsPanel() {
 
       {/* Base URL */}
       <div>
-        <label className="text-xs font-medium text-soft-charcoal/70 mb-1 block">
+        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
           Base URL
         </label>
         <input
@@ -136,13 +136,13 @@ export function SettingsPanel() {
 
       {/* Default Model */}
       <div>
-        <label className="text-xs font-medium text-soft-charcoal/70 mb-1 block">
-          Default Model
+        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
+          Model
         </label>
         {modelsLoading ? (
           <div className="flex items-center gap-2 h-8">
             <span className="loading loading-spinner loading-xs text-rca-red" />
-            <span className="text-xs text-soft-charcoal/50">Loading models...</span>
+            <span className="text-xs text-soft-charcoal/40">Loading models...</span>
           </div>
         ) : modelsFetchFailed || models.length === 0 ? (
           <input
@@ -170,9 +170,9 @@ export function SettingsPanel() {
 
       {/* Temperature */}
       <div>
-        <label className="text-xs font-medium text-soft-charcoal/70 mb-1 flex justify-between">
+        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 flex justify-between uppercase tracking-wide">
           <span>Temperature</span>
-          <span className="text-rca-red">{settings.temperature.toFixed(1)}</span>
+          <span className="text-rca-red normal-case tabular-nums">{settings.temperature.toFixed(1)}</span>
         </label>
         <input
           type="range"
@@ -189,7 +189,7 @@ export function SettingsPanel() {
 
       {/* Max Tokens */}
       <div>
-        <label className="text-xs font-medium text-soft-charcoal/70 mb-1 block">
+        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
           Max Tokens
         </label>
         <input
@@ -205,8 +205,8 @@ export function SettingsPanel() {
       </div>
 
       {/* Strict Mode */}
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-soft-charcoal/70">
+      <div className="flex items-center justify-between py-0.5">
+        <label className="text-[11px] font-medium text-soft-charcoal/60 uppercase tracking-wide">
           Strict Mode
         </label>
         <input
@@ -217,11 +217,11 @@ export function SettingsPanel() {
         />
       </div>
 
-      <div className="divider text-xs text-soft-charcoal/40">Search APIs</div>
+      <div className="divider text-[10px] text-soft-charcoal/30 uppercase tracking-widest my-1">Search APIs</div>
 
       {/* Tavily Key */}
       <div>
-        <label className="text-xs font-medium text-soft-charcoal/70 mb-1 block">
+        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
           Tavily API Key
         </label>
         <input
@@ -235,7 +235,7 @@ export function SettingsPanel() {
 
       {/* SerpAPI Key */}
       <div>
-        <label className="text-xs font-medium text-soft-charcoal/70 mb-1 block">
+        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
           SerpAPI Key
         </label>
         <input

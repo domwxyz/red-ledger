@@ -52,6 +52,8 @@ export interface ToolCall {
   name: string
   arguments: Record<string, unknown>
   result?: unknown
+  /** Character offset into Message.content where this tool call was initiated. */
+  contentOffset?: number
 }
 
 // ─── LLM Request ─────────────────────────────────────────────────────────────
@@ -89,6 +91,13 @@ export interface SearchResult {
   title: string
   url: string
   snippet: string
+}
+
+// ─── Attachments ─────────────────────────────────────────────────────────
+
+export interface Attachment {
+  name: string
+  content: string
 }
 
 // ─── Errors ──────────────────────────────────────────────────────────────────
@@ -154,6 +163,7 @@ export interface RedLedgerAPI {
   // Dialogs
   showConfirmDialog(options: { title: string; message: string; detail?: string }): Promise<boolean>
   openTextFile(): Promise<string | null>
+  openAttachmentFiles(): Promise<Attachment[]>
 }
 
 // Extend Window interface for the renderer
