@@ -10,7 +10,8 @@ Red Ledger runs entirely on your machine. No telemetry, no cloud sync, no accoun
 
 - **Multi-provider chat** — Stream responses from OpenAI, OpenRouter, or Ollama with tool-calling support. Switch providers and models on the fly.
 - **Workspace file access** — Point the app at any folder. The LLM can read, write, append, and list files within it. An optional strict mode requires your approval for every file operation.
-- **Persistent context editing** — Three markdown files (System, User, Organization) are injected into every request as the system prompt. Edit them in-app with a full CodeMirror 6 editor, and reset to defaults at any time.
+- **File attachments** — Attach `.txt` or `.md` files directly to a message via the paperclip button. Contents are inlined into the request so the LLM can reference them.
+- **Persistent context editing** — Three markdown files (System, User, Organization) are injected into every request as the system prompt. Edit them in-app with a full CodeMirror 6 editor, load content from an external file, and reset to defaults at any time.
 - **Web search** — The LLM can search the web via Tavily or SerpAPI and incorporate results into its responses.
 - **Conversation history** — All conversations are stored locally in SQLite. Rename, delete, or pick up where you left off.
 - **Portable mode** — Drop a `settings.json` next to the executable and the app stores everything alongside the binary instead of in `%APPDATA%`.
@@ -22,8 +23,8 @@ Red Ledger runs entirely on your machine. No telemetry, no cloud sync, no accoun
  ┌──────────────┬───────────────────────────┬──────────────────┐
  │ Conversations│                           │ System Prompt    │
  │ Workspace    │   Message feed +          │ ────────────     │
- │ Settings     │   streaming input         │ User Context     │
- │              │                           │ ────────────     │
+ │ Settings     │   streaming input +       │ User Context     │
+ │              │   file attachments        │ ────────────     │
  │              │                           │ Org Context      │
  └──────────────┴───────────────────────────┴──────────────────┘
 ```
@@ -157,10 +158,10 @@ red-ledger/
 │   │   │   ├── MessageList.tsx    # Scrollable feed (auto-animate)
 │   │   │   ├── MessageBubble.tsx  # Markdown rendering (marked + DOMPurify)
 │   │   │   ├── ToolCallCard.tsx   # Expandable tool invocation display
-│   │   │   └── ChatInput.tsx      # Textarea, send/cancel button
+│   │   │   └── ChatInput.tsx      # Textarea, send/cancel, attach files
 │   │   ├── Context/
 │   │   │   ├── ContextPanel.tsx   # Three stacked editors
-│   │   │   └── ContextEditor.tsx  # Single CodeMirror instance + save/reset
+│   │   │   └── ContextEditor.tsx  # Single CodeMirror instance + save/reset/load
 │   │   ├── Editor/
 │   │   │   ├── Editor.tsx         # CodeMirror 6 wrapper component
 │   │   │   └── redLedgerTheme.ts  # Custom CM6 theme (paper, red accents)
@@ -192,6 +193,7 @@ red-ledger/
 │   └── org.md
 ├── electron.vite.config.ts
 ├── tailwind.config.js
+├── postcss.config.js
 ├── tsconfig.json
 ├── tsconfig.node.json
 ├── index.html
@@ -242,6 +244,7 @@ Red Ledger follows Electron's strict two-process model:
 - Base URLs are configurable per provider in Settings.
 - The model dropdown fetches available models from the provider's list endpoint.
 - Streaming uses a unique per-call IPC channel to prevent collisions.
+- Tool calls are interleaved with surrounding text so the LLM can narrate its actions mid-response.
 - Tool rounds are capped at 10 to prevent infinite loops.
 
 ---
@@ -285,7 +288,7 @@ Three persistent markdown files are injected as the system prompt for every LLM 
 | **User** | Personal info, preferences, writing style |
 | **Organization** | Mission, key terms, style guidelines |
 
-These are stored in the OS `userData` directory (or alongside the binary in portable mode), independent of any workspace. Each has a bundled seed file that can be restored via the Reset button.
+These are stored in the OS `userData` directory (or alongside the binary in portable mode), independent of any workspace. Each editor can load content from an external `.txt` or `.md` file, and has a bundled seed file that can be restored via the Reset button.
 
 ---
 
