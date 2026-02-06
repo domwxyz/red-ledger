@@ -59,6 +59,9 @@ const api: RedLedgerAPI = {
   updateMessage: (id: string, data) =>
     ipcRenderer.invoke('db:updateMessage', id, data),
 
+  deleteMessagesFrom: (conversationId: string, messageId: string) =>
+    ipcRenderer.invoke('db:deleteMessagesFrom', conversationId, messageId),
+
   // ─── LLM Streaming ──────────────────────────────────────────────────────
 
   sendMessage: (request, onStream) => {

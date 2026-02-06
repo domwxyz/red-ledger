@@ -17,6 +17,7 @@ interface ConversationState {
   loadMessages: (conversationId: string) => Promise<void>
   addMessage: (data: Omit<Message, 'id' | 'createdAt'>) => Promise<Message>
   updateMessage: (id: string, data: Partial<Message>) => void
+  deleteMessagesFrom: (messageId: string) => Promise<void>
 }
 
 export const useConversationStore = create<ConversationState>((set, get) => ({
@@ -155,5 +156,26 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         m.id === id ? { ...m, ...data } : m
       )
     }))
+  },
+
+  deleteMessagesFrom: async (messageId) => {
+    if (!window.redLedger) return
+    const { activeConversationId, messages } = get()
+    if (!activeConversationId) return
+
+    const msgIndex = messages.findIndex((m) => m.id === messageId)
+    if (msgIndex === -1) return
+
+    try {
+      await window.redLedger.deleteMessagesFrom(activeConversationId, messageId)
+      set((state) => ({
+        messages: state.messages.slice(0, msgIndex)
+      }))
+    } catch (err) {
+      useUIStore.getState().addToast({
+        type: 'error',
+        message: formatError(err)
+      })
+    }
   }
 }))

@@ -148,6 +148,7 @@ export interface RedLedgerAPI {
   listMessages(conversationId: string): Promise<Message[]>
   createMessage(data: Omit<Message, 'id' | 'createdAt'>): Promise<Message>
   updateMessage(id: string, data: Partial<Message>): Promise<void>
+  deleteMessagesFrom(conversationId: string, messageId: string): Promise<void>
 
   // LLM Streaming
   sendMessage(request: LLMRequest, onStream: (chunk: StreamChunk) => void): () => void

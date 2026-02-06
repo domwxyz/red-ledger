@@ -1,17 +1,21 @@
 import { useState, useRef, useCallback } from 'react'
 import { Send, Square, Paperclip, X } from 'lucide-react'
 import { useConversationStore, useSettingsStore } from '@/store'
-import { useStreaming } from '@/hooks/useStreaming'
+import type { useStreaming } from '@/hooks/useStreaming'
 import type { Attachment } from '@/types'
 
-export function ChatInput() {
+interface ChatInputProps {
+  streaming: ReturnType<typeof useStreaming>
+}
+
+export function ChatInput({ streaming }: ChatInputProps) {
   const [input, setInput] = useState('')
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const activeConversationId = useConversationStore((s) => s.activeConversationId)
   const settings = useSettingsStore((s) => s.settings)
-  const { isStreaming, sendMessage, cancel } = useStreaming()
+  const { isStreaming, sendMessage, cancel } = streaming
 
   const handleAttach = useCallback(async () => {
     const files = await window.redLedger.openAttachmentFiles()

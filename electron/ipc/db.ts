@@ -275,5 +275,20 @@ export class DatabaseManager {
         id
       )
     })
+
+    // Delete a message and all messages after it in the same conversation
+    ipcMain.handle('db:deleteMessagesFrom', (_event, conversationId: string, messageId: string) => {
+      const row = this.getStatement(
+        'getMessage',
+        'SELECT * FROM messages WHERE id = ?'
+      ).get(messageId) as Record<string, unknown> | undefined
+
+      if (!row) return
+
+      this.getStatement(
+        'deleteMessagesFrom',
+        'DELETE FROM messages WHERE conversation_id = ? AND created_at >= ?'
+      ).run(conversationId, row.created_at)
+    })
   }
 }

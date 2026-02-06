@@ -209,9 +209,33 @@ export function useStreaming() {
     }
   }, [])
 
+  const retry = useCallback(async () => {
+    if (isStreaming) return
+
+    const store = useConversationStore.getState()
+    const { messages } = store
+
+    // Find the last user message
+    let lastUserMsg: Message | undefined
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        lastUserMsg = messages[i]
+        break
+      }
+    }
+    if (!lastUserMsg) return
+
+    // Delete the user message and everything after it from DB + store
+    await store.deleteMessagesFrom(lastUserMsg.id)
+
+    // Re-send the same content (attachments are already baked into the content string)
+    await sendMessage(lastUserMsg.content)
+  }, [isStreaming, sendMessage])
+
   return {
     isStreaming,
     sendMessage,
-    cancel
+    cancel,
+    retry
   }
 }

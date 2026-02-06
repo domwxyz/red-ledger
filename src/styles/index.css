@@ -160,6 +160,38 @@
   color: inherit;
 }
 
+/* ─── Message Action Buttons (hover-reveal toolbar) ──────────────────────── */
+
+.message-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+  height: 24px;          /* Reserve space so layout doesn't jump */
+}
+
+.message-row:hover > .message-actions,
+.message-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.message-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border-radius: 4px;
+  color: rgba(44, 44, 44, 0.30);
+  cursor: pointer;
+  line-height: 0;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.message-action-btn:hover {
+  color: rgba(44, 44, 44, 0.70);
+  background-color: rgba(44, 44, 44, 0.06);
+}
+
 /* ─── Streaming Cursor ────────────────────────────────────────────────────── */
 
 @keyframes blink {

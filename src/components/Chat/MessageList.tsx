@@ -5,7 +5,12 @@ import { MessageBubble } from './MessageBubble'
 /** Pixel threshold — if the user is within this distance of the bottom, auto-scroll continues. */
 const NEAR_BOTTOM_PX = 150
 
-export function MessageList() {
+interface MessageListProps {
+  isStreaming: boolean
+  onRetry: () => void
+}
+
+export function MessageList({ isStreaming, onRetry }: MessageListProps) {
   const messages = useConversationStore((s) => s.messages)
   const isLoadingMessages = useConversationStore((s) => s.isLoadingMessages)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -47,16 +52,30 @@ export function MessageList() {
     )
   }
 
+  // Find the last user message index — retry attaches there
+  let lastUserIdx = -1
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') {
+      lastUserIdx = i
+      break
+    }
+  }
+
+  // Only show retry when not streaming and the conversation has finished (last message is a persisted assistant message)
+  const lastMessage = messages[messages.length - 1]
+  const canRetry = !isStreaming && lastMessage?.role === 'assistant' && !lastMessage.id.startsWith('streaming-')
+
   return (
     <div
       ref={scrollContainerRef}
       className="h-full overflow-y-auto px-4 py-4 space-y-4"
     >
-      {messages.map((message) => (
+      {messages.map((message, idx) => (
         <MessageBubble
           key={message.id}
           message={message}
           isStreaming={message.id.startsWith('streaming-')}
+          onRetry={canRetry && idx === lastUserIdx ? onRetry : undefined}
         />
       ))}
       <div ref={bottomRef} />

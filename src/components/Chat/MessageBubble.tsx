@@ -4,6 +4,12 @@ import DOMPurify from 'dompurify'
 import { Paperclip } from 'lucide-react'
 import type { Message, ToolCall } from '@/types'
 import { ToolCallCard } from './ToolCallCard'
+import {
+  MessageActionsBar,
+  useCopyAction,
+  retryAction,
+  type MessageAction
+} from './MessageActions'
 
 // Configure marked for GFM + line breaks
 marked.setOptions({
@@ -14,6 +20,8 @@ marked.setOptions({
 interface MessageBubbleProps {
   message: Message
   isStreaming?: boolean
+  /** If provided, a retry button is shown in the action bar. */
+  onRetry?: () => void
 }
 
 /** A renderable segment: either a block of text or a tool call. */
@@ -89,7 +97,14 @@ function buildSegments(content: string, toolCalls: ToolCall[]): Segment[] {
   return segments
 }
 
-export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
+/** Extract user-visible text from a user message (strips attachment blocks). */
+function extractUserText(content: string): string {
+  const separator = '\n\n---\n**Attached file: '
+  const idx = content.indexOf(separator)
+  return idx === -1 ? content : content.slice(0, idx)
+}
+
+export function MessageBubble({ message, isStreaming, onRetry }: MessageBubbleProps) {
   // Parse tool calls from JSON string if present
   const toolCalls = useMemo<ToolCall[]>(() => {
     if (!message.toolCalls) return []
@@ -100,7 +115,29 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
     }
   }, [message.toolCalls])
 
+  // ─── Actions ───────────────────────────────────────────────────────────────
+
+  // Copy action: for user messages copy the user text only; for assistant copy raw content
+  const copyText = message.role === 'user'
+    ? extractUserText(message.content)
+    : message.content
+  const copyAction = useCopyAction(copyText)
+
+  const actions = useMemo<MessageAction[]>(() => {
+    // Don't show actions during streaming or for system messages
+    if (isStreaming || message.role === 'system') return []
+
+    const list: MessageAction[] = []
+    if (onRetry) list.push(retryAction(onRetry))
+    list.push(copyAction)
+    return list
+  }, [copyAction, onRetry, isStreaming, message.role])
+
+  const align = message.role === 'user' ? 'right' : 'left'
+
   if (message.role === 'system') return null // Don't render system messages
+
+  // ─── User Message ──────────────────────────────────────────────────────────
 
   // Parse user message: separate text from attachment blocks
   const userParts = useMemo(() => {
@@ -121,11 +158,10 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
     return { text, attachments }
   }, [message.content, message.role])
 
-  // User messages — show text + collapsible attachments
   if (message.role === 'user') {
     const { text, attachments } = userParts!
     return (
-      <div className="flex flex-col gap-2 items-end">
+      <div className="message-row group flex flex-col items-end">
         <div className="message-bubble user">
           {text && text !== '(see attached files)' && (
             <pre className="whitespace-pre-wrap font-sans text-sm m-0">{text}</pre>
@@ -133,11 +169,11 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
           {attachments.length > 0 && (
             <div className={`flex flex-col gap-1 ${text && text !== '(see attached files)' ? 'mt-2' : ''}`}>
               {attachments.map((a, i) => (
-                <details key={i} className="group">
+                <details key={i} className="group/attach">
                   <summary className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-soft-charcoal/60 hover:text-soft-charcoal select-none list-none [&::-webkit-details-marker]:hidden">
                     <Paperclip size={11} className="shrink-0" />
                     <span>{a.name}</span>
-                    <span className="text-[10px] opacity-50 group-open:rotate-90 transition-transform">&#9654;</span>
+                    <span className="text-[10px] opacity-50 group-open/attach:rotate-90 transition-transform">&#9654;</span>
                   </summary>
                   <pre className="whitespace-pre-wrap font-mono text-xs mt-1 p-2 bg-black/5 rounded max-h-[200px] overflow-y-auto m-0">{a.content}</pre>
                 </details>
@@ -145,11 +181,13 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
             </div>
           )}
         </div>
+        <MessageActionsBar actions={actions} align={align} />
       </div>
     )
   }
 
-  // Assistant messages — interleave text and tool calls
+  // ─── Assistant Message ─────────────────────────────────────────────────────
+
   const segments = useMemo(
     () => buildSegments(message.content, toolCalls),
     [message.content, toolCalls]
@@ -160,7 +198,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   const lastSegmentIsText = lastSegment?.kind === 'text'
 
   return (
-    <div className="flex flex-col gap-2 items-start">
+    <div className="message-row group flex flex-col gap-2 items-start">
       {segments.map((seg, i) => {
         if (seg.kind === 'tool') {
           return (
@@ -203,6 +241,8 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
           <span className="streaming-cursor" />
         </div>
       )}
+
+      <MessageActionsBar actions={actions} align={align} />
     </div>
   )
 }

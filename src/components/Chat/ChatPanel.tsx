@@ -1,9 +1,11 @@
 import { useConversationStore } from '@/store'
+import { useStreaming } from '@/hooks/useStreaming'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 
 export function ChatPanel() {
   const activeConversationId = useConversationStore((s) => s.activeConversationId)
+  const streaming = useStreaming()
 
   return (
     <div className="h-full flex flex-col bg-paper">
@@ -18,11 +20,11 @@ export function ChatPanel() {
         <>
           {/* Message Feed */}
           <div className="flex-1 overflow-hidden">
-            <MessageList />
+            <MessageList isStreaming={streaming.isStreaming} onRetry={streaming.retry} />
           </div>
 
           {/* Input */}
-          <ChatInput />
+          <ChatInput streaming={streaming} />
         </>
       ) : (
         /* Empty State */
