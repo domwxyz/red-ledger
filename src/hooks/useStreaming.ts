@@ -3,56 +3,52 @@ import { useConversationStore, useSettingsStore, useUIStore } from '@/store'
 import { formatError } from '@/lib/errors'
 import type { StreamChunk, ToolCall, LLMRequest, Message } from '@/types'
 
+const STREAM_THROTTLE_MS = 50
+
 /**
  * React hook that manages the LLM streaming lifecycle.
  *
- * - Maintains state: isStreaming, streamingContent, toolCalls
- * - sendMessage: adds user message to DB, starts IPC stream, accumulates chunks,
- *   on done saves assistant message to DB
- * - cancel: calls the cleanup function, resets state
- * - Uses a ref for the cleanup function to avoid stale closures
- * - Cleans up on unmount (via the cancel ref)
+ * Flow: user sends message -> save to DB -> create temp assistant message ->
+ * stream chunks into temp message -> on done, persist to DB and atomically
+ * replace temp message with the saved version (no flash/gap).
+ *
+ * Streaming content updates are throttled to avoid excessive re-renders.
  */
 export function useStreaming() {
   const [isStreaming, setIsStreaming] = useState(false)
-  const [streamingContent, setStreamingContent] = useState('')
-  const [toolCalls, setToolCalls] = useState<ToolCall[]>([])
 
   const cleanupRef = useRef<(() => void) | null>(null)
   const contentRef = useRef('')
   const toolCallsRef = useRef<ToolCall[]>([])
-
-  const addMessage = useConversationStore.getState().addMessage
-  const updateMessage = useConversationStore.getState().updateMessage
-  const settings = useSettingsStore.getState().settings
+  const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const cancel = useCallback(() => {
     if (cleanupRef.current) {
       cleanupRef.current()
       cleanupRef.current = null
     }
+    if (throttleRef.current) {
+      clearTimeout(throttleRef.current)
+      throttleRef.current = null
+    }
     setIsStreaming(false)
-    setStreamingContent('')
-    setToolCalls([])
     contentRef.current = ''
     toolCallsRef.current = []
   }, [])
 
   const sendMessage = useCallback(async (content: string) => {
-    const conversationId = useConversationStore.getState().activeConversationId
+    const store = useConversationStore.getState()
+    const conversationId = store.activeConversationId
     const currentSettings = useSettingsStore.getState().settings
     if (!conversationId || !currentSettings) return
 
-    // Reset state
     setIsStreaming(true)
-    setStreamingContent('')
-    setToolCalls([])
     contentRef.current = ''
     toolCallsRef.current = []
 
     try {
-      // 1. Save user message to DB immediately
-      await addMessage({
+      // 1. Save user message to DB
+      await store.addMessage({
         conversationId,
         role: 'user',
         content
@@ -73,11 +69,10 @@ export function useStreaming() {
         maxTokens: currentSettings.maxTokens
       }
 
-      // 3. Create a placeholder assistant message in the store (local optimistic)
-      // We'll give it a temporary ID that gets replaced when we save to DB
-      const tempAssistantId = `streaming-${Date.now()}`
+      // 3. Create a placeholder assistant message in the store
+      const tempId = `streaming-${Date.now()}`
       const tempMessage: Message = {
-        id: tempAssistantId,
+        id: tempId,
         conversationId,
         role: 'assistant',
         content: '',
@@ -87,40 +82,49 @@ export function useStreaming() {
         messages: [...state.messages, tempMessage]
       }))
 
+      // Helper: flush accumulated content to the temp message in the store
+      const flushToStore = () => {
+        useConversationStore.getState().updateMessage(tempId, {
+          content: contentRef.current,
+          toolCalls: toolCallsRef.current.length > 0
+            ? JSON.stringify(toolCallsRef.current)
+            : undefined
+        })
+      }
+
+      // Helper: throttled store update for text chunks
+      const scheduleFlush = () => {
+        if (!throttleRef.current) {
+          throttleRef.current = setTimeout(() => {
+            throttleRef.current = null
+            flushToStore()
+          }, STREAM_THROTTLE_MS)
+        }
+      }
+
       // 4. Start the stream
       const cleanup = window.redLedger.sendMessage(request, (chunk: StreamChunk) => {
         switch (chunk.type) {
           case 'text': {
             contentRef.current += chunk.content || ''
-            setStreamingContent(contentRef.current)
-
-            // Update the temporary message in the store with accumulated content
-            useConversationStore.getState().updateMessage(tempAssistantId, {
-              content: contentRef.current
-            })
+            scheduleFlush()
             break
           }
 
           case 'tool_call': {
             if (chunk.toolCall) {
               toolCallsRef.current = [...toolCallsRef.current, chunk.toolCall]
-              setToolCalls([...toolCallsRef.current])
+              flushToStore()
             }
             break
           }
 
           case 'tool_result': {
-            // Update the matching tool call with its result
             if (chunk.toolCall) {
               toolCallsRef.current = toolCallsRef.current.map((tc) =>
                 tc.id === chunk.toolCall!.id ? chunk.toolCall! : tc
               )
-              setToolCalls([...toolCallsRef.current])
-
-              // Update the assistant message's toolCalls in the local store
-              useConversationStore.getState().updateMessage(tempAssistantId, {
-                toolCalls: JSON.stringify(toolCallsRef.current)
-              })
+              flushToStore()
             }
             break
           }
@@ -134,17 +138,17 @@ export function useStreaming() {
           }
 
           case 'done': {
-            // 5. Save the final assistant message to DB
+            // Cancel any pending throttled flush
+            if (throttleRef.current) {
+              clearTimeout(throttleRef.current)
+              throttleRef.current = null
+            }
+
             const finalContent = contentRef.current
             const finalToolCalls = toolCallsRef.current
 
-            // Remove the temporary message from the store
-            useConversationStore.setState((state) => ({
-              messages: state.messages.filter((m) => m.id !== tempAssistantId)
-            }))
-
-            // Save to DB (this adds it back to the store via addMessage)
             if (finalContent || finalToolCalls.length > 0) {
+              // Persist to DB, then atomically replace the temp message
               window.redLedger.createMessage({
                 conversationId,
                 role: 'assistant',
@@ -153,9 +157,11 @@ export function useStreaming() {
                   ? JSON.stringify(finalToolCalls)
                   : undefined
               }).then((savedMsg) => {
-                // Add the saved message to the store
+                // Atomic swap: replace temp with persisted message (no flash)
                 useConversationStore.setState((state) => ({
-                  messages: [...state.messages, savedMsg]
+                  messages: state.messages.map((m) =>
+                    m.id === tempId ? savedMsg : m
+                  )
                 }))
               }).catch((err) => {
                 useUIStore.getState().addToast({
@@ -163,12 +169,14 @@ export function useStreaming() {
                   message: formatError(err)
                 })
               })
+            } else {
+              // Nothing to save — remove the empty temp message
+              useConversationStore.setState((state) => ({
+                messages: state.messages.filter((m) => m.id !== tempId)
+              }))
             }
 
-            // Reset streaming state
             setIsStreaming(false)
-            setStreamingContent('')
-            setToolCalls([])
             contentRef.current = ''
             toolCallsRef.current = []
             cleanupRef.current = null
@@ -186,12 +194,10 @@ export function useStreaming() {
         message: formatError(err)
       })
     }
-  }, [addMessage])
+  }, [])
 
   return {
     isStreaming,
-    streamingContent,
-    toolCalls,
     sendMessage,
     cancel
   }

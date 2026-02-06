@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+import { readFileSync } from 'fs'
 import { DatabaseManager } from './ipc/db'
 import { registerContextHandlers } from './ipc/context'
 import { registerSettingsHandlers } from './ipc/settings'
@@ -75,6 +76,27 @@ function registerIpcHandlers(): void {
       detail: options.detail
     })
     return result.response === 1
+  })
+
+  // Open file dialog — returns the text content of a user-selected file, or null if cancelled
+  ipcMain.handle('dialog:openTextFile', async () => {
+    if (!mainWindow) return null
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Load Context from File',
+      filters: [
+        { name: 'Text Files', extensions: ['md', 'txt', 'markdown'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+
+    if (result.canceled || result.filePaths.length === 0) return null
+
+    try {
+      return readFileSync(result.filePaths[0], 'utf-8')
+    } catch {
+      return null
+    }
   })
 
   // Register module-specific handlers

@@ -153,6 +153,7 @@ export interface RedLedgerAPI {
 
   // Dialogs
   showConfirmDialog(options: { title: string; message: string; detail?: string }): Promise<boolean>
+  openTextFile(): Promise<string | null>
 }
 
 // Extend Window interface for the renderer

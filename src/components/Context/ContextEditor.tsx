@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Save, RotateCcw } from 'lucide-react'
+import { Save, RotateCcw, FolderOpen } from 'lucide-react'
 import { Editor } from '../Editor/Editor'
 import { useUIStore } from '@/store'
 import { cn } from '@/lib/utils'
@@ -59,6 +59,23 @@ export function ContextEditor({ type, title, description }: ContextEditorProps) 
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleSave, isDirty])
 
+  // Load from file handler
+  const handleLoadFromFile = async () => {
+    if (!window.redLedger) return
+    try {
+      const fileContent = await window.redLedger.openTextFile()
+      if (fileContent !== null) {
+        setContent(fileContent)
+        // Do NOT update savedSnapshot — user must explicitly save
+      }
+    } catch {
+      useUIStore.getState().addToast({
+        type: 'error',
+        message: `Failed to load file`
+      })
+    }
+  }
+
   // Reset handler
   const handleReset = async () => {
     if (!window.redLedger) return
@@ -102,6 +119,14 @@ export function ContextEditor({ type, title, description }: ContextEditorProps) 
             title="Reset to default"
           >
             <RotateCcw size={12} />
+          </button>
+          <button
+            onClick={handleLoadFromFile}
+            className="btn btn-ghost btn-xs text-soft-charcoal/50 hover:text-soft-charcoal gap-1"
+            title="Load from file"
+          >
+            <FolderOpen size={12} />
+            Load
           </button>
           <button
             onClick={handleSave}

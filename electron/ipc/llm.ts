@@ -1,7 +1,6 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { app, ipcMain, BrowserWindow } from 'electron'
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
-import { app } from 'electron'
 import { getCurrentSettings } from './settings'
 import { BaseLLMProvider, type LLMMessage, type AbortHandle } from '../lib/providers/base'
 import { OpenAIProvider } from '../lib/providers/openai'

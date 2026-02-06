@@ -3,16 +3,41 @@ import type { Settings, ProviderName } from '@/types'
 import { formatError } from '@/lib/errors'
 import { useUIStore } from './uiStore'
 
+const SAVE_DEBOUNCE_MS = 500
+
 interface SettingsState {
   settings: Settings | null
   isLoading: boolean
   error: string | null
 
   loadSettings: () => Promise<void>
-  saveSettings: (settings: Settings) => Promise<void>
-  updateProvider: (name: ProviderName, partial: Partial<Settings['providers'][ProviderName]>) => Promise<void>
-  setActiveProvider: (name: ProviderName) => Promise<void>
-  setStrictMode: (enabled: boolean) => Promise<void>
+  saveSettings: (settings: Settings) => void
+  updateProvider: (name: ProviderName, partial: Partial<Settings['providers'][ProviderName]>) => void
+  setActiveProvider: (name: ProviderName) => void
+  setStrictMode: (enabled: boolean) => void
+}
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Persist settings to disk with debouncing.
+ * Updates local state immediately for snappy UI, but batches IPC writes
+ * so rapid changes (e.g. dragging the temperature slider) don't spam disk I/O.
+ */
+function debouncedPersist(settings: Settings) {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    saveTimer = null
+    if (!window.redLedger) return
+    try {
+      await window.redLedger.saveSettings(settings)
+    } catch (err) {
+      useUIStore.getState().addToast({
+        type: 'error',
+        message: formatError(err)
+      })
+    }
+  }, SAVE_DEBOUNCE_MS)
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -49,44 +74,37 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
 
-  saveSettings: async (settings) => {
-    if (!window.redLedger) return
-    try {
-      await window.redLedger.saveSettings(settings)
-      set({ settings })
-    } catch (err) {
-      useUIStore.getState().addToast({
-        type: 'error',
-        message: formatError(err)
-      })
-    }
+  saveSettings: (settings) => {
+    // Optimistic local update (instant UI feedback)
+    set({ settings })
+    // Debounced disk write
+    debouncedPersist(settings)
   },
 
-  updateProvider: async (name, partial) => {
+  updateProvider: (name, partial) => {
     const { settings, saveSettings } = get()
     if (!settings) return
 
-    const updated: Settings = {
+    saveSettings({
       ...settings,
       providers: {
         ...settings.providers,
         [name]: { ...settings.providers[name], ...partial }
       }
-    }
-    await saveSettings(updated)
+    })
   },
 
-  setActiveProvider: async (name) => {
+  setActiveProvider: (name) => {
     const { settings, saveSettings } = get()
     if (!settings) return
 
-    await saveSettings({ ...settings, activeProvider: name })
+    saveSettings({ ...settings, activeProvider: name })
   },
 
-  setStrictMode: async (enabled) => {
+  setStrictMode: (enabled) => {
     const { settings, saveSettings } = get()
     if (!settings) return
 
-    await saveSettings({ ...settings, strictMode: enabled })
+    saveSettings({ ...settings, strictMode: enabled })
   }
 }))

@@ -53,8 +53,8 @@ function loadSettingsFromDisk(): Settings {
     if (existsSync(settingsPath)) {
       const raw = readFileSync(settingsPath, 'utf-8')
       const parsed = JSON.parse(raw) as Partial<Settings>
-      // Merge with defaults to handle newly added fields
-      return { ...DEFAULT_SETTINGS, ...parsed }
+      // Merge with defaults to handle newly added fields, then sanitize
+      return sanitizeSettings({ ...DEFAULT_SETTINGS, ...parsed })
     }
   } catch {
     // Corrupted settings file — use defaults
@@ -64,7 +64,43 @@ function loadSettingsFromDisk(): Settings {
 
 function saveSettingsToDisk(settings: Settings): void {
   const settingsPath = getSettingsPath()
-  writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8')
+  writeFileSync(settingsPath, JSON.stringify(sanitizeSettings(settings), null, 2), 'utf-8')
+}
+
+const VALID_PROVIDERS = new Set(['openai', 'openrouter', 'ollama'])
+
+/**
+ * Clamp numeric values to valid ranges and ensure enum values are valid.
+ * Prevents garbage values from crashing LLM requests or persisting to disk.
+ */
+function sanitizeSettings(settings: Settings): Settings {
+  const s = { ...settings }
+
+  // Clamp temperature: 0–2
+  if (typeof s.temperature !== 'number' || isNaN(s.temperature)) {
+    s.temperature = DEFAULT_SETTINGS.temperature
+  } else {
+    s.temperature = Math.round(Math.max(0, Math.min(2, s.temperature)) * 10) / 10
+  }
+
+  // Clamp maxTokens: 1–128000
+  if (typeof s.maxTokens !== 'number' || isNaN(s.maxTokens)) {
+    s.maxTokens = DEFAULT_SETTINGS.maxTokens
+  } else {
+    s.maxTokens = Math.max(1, Math.min(128000, Math.floor(s.maxTokens)))
+  }
+
+  // Validate provider
+  if (!VALID_PROVIDERS.has(s.activeProvider)) {
+    s.activeProvider = DEFAULT_SETTINGS.activeProvider
+  }
+
+  // Ensure defaultModel is non-empty
+  if (!s.defaultModel || typeof s.defaultModel !== 'string') {
+    s.defaultModel = DEFAULT_SETTINGS.defaultModel
+  }
+
+  return s
 }
 
 /**

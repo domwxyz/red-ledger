@@ -100,7 +100,10 @@ const api: RedLedgerAPI = {
   // ─── Dialogs ─────────────────────────────────────────────────────────────
 
   showConfirmDialog: (options) =>
-    ipcRenderer.invoke('dialog:confirm', options)
+    ipcRenderer.invoke('dialog:confirm', options),
+
+  openTextFile: () =>
+    ipcRenderer.invoke('dialog:openTextFile')
 }
 
 contextBridge.exposeInMainWorld('redLedger', api)

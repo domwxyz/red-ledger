@@ -3,7 +3,6 @@ import { Send, Square } from 'lucide-react'
 import { useConversationStore, useSettingsStore } from '@/store'
 import { useStreaming } from '@/hooks/useStreaming'
 
-
 export function ChatInput() {
   const [input, setInput] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)

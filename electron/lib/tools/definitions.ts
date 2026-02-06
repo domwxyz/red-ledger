@@ -94,7 +94,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             description: 'The search query'
           },
           num_results: {
-            type: 'string',
+            type: 'number',
             description: 'Number of results to return (1-10, default 5)'
           }
         },

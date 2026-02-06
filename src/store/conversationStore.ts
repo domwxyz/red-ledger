@@ -122,10 +122,22 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     if (!window.redLedger) throw new Error('API not available')
     try {
       const message = await window.redLedger.createMessage(data)
-      // Optimistic append
       set((state) => ({
         messages: [...state.messages, message]
       }))
+
+      // Auto-title: when the first user message is added to a "New Chat",
+      // rename the conversation based on the message content
+      if (data.role === 'user') {
+        const { conversations, messages } = get()
+        const conv = conversations.find((c) => c.id === data.conversationId)
+        const isFirstUserMessage = messages.filter((m) => m.role === 'user').length === 1
+        if (conv && conv.title === 'New Chat' && isFirstUserMessage) {
+          const title = data.content.slice(0, 50).trim() + (data.content.length > 50 ? '...' : '')
+          get().renameConversation(conv.id, title)
+        }
+      }
+
       return message
     } catch (err) {
       useUIStore.getState().addToast({
