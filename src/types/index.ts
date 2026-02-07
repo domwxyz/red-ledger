@@ -42,6 +42,7 @@ export interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   toolCalls?: string     // JSON-serialized ToolCall[]
+  timestamp: string      // ISO 8601 system timestamp captured when message was created
   createdAt: number
 }
 
@@ -60,7 +61,7 @@ export interface ToolCall {
 
 export interface LLMRequest {
   conversationId: string
-  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string; timestamp: string }>
   model: string
   provider: ProviderName
   temperature?: number
@@ -146,7 +147,7 @@ export interface RedLedgerAPI {
 
   // Messages
   listMessages(conversationId: string): Promise<Message[]>
-  createMessage(data: Omit<Message, 'id' | 'createdAt'>): Promise<Message>
+  createMessage(data: Omit<Message, 'id' | 'createdAt' | 'timestamp'>): Promise<Message>
   updateMessage(id: string, data: Partial<Message>): Promise<void>
   deleteMessagesFrom(conversationId: string, messageId: string): Promise<void>
 

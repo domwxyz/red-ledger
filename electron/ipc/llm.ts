@@ -106,9 +106,15 @@ async function orchestrateStream(
   // System message first
   messages.push({ role: 'system', content: systemPrompt })
 
-  // Append conversation messages from the request
+  // Append conversation messages from the request, injecting system timestamps
+  // into user messages so the LLM always has accurate real-time context
   for (const msg of request.messages) {
-    messages.push({ role: msg.role, content: msg.content })
+    if (msg.role === 'user' && msg.timestamp) {
+      const timestampTag = `[system: msg_timestamp=${msg.timestamp}]\n\n`
+      messages.push({ role: msg.role, content: timestampTag + msg.content })
+    } else {
+      messages.push({ role: msg.role, content: msg.content })
+    }
   }
 
   // Determine which tools to offer

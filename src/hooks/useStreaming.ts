@@ -66,7 +66,8 @@ export function useStreaming() {
       // 2. Build the message history for the LLM request
       const messages = useConversationStore.getState().messages.map((m) => ({
         role: m.role,
-        content: m.content
+        content: m.content,
+        timestamp: m.timestamp
       }))
 
       const request: LLMRequest = {
@@ -85,6 +86,7 @@ export function useStreaming() {
         conversationId,
         role: 'assistant',
         content: '',
+        timestamp: new Date().toISOString(),
         createdAt: Date.now()
       }
       useConversationStore.setState((state) => ({

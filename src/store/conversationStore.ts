@@ -15,7 +15,7 @@ interface ConversationState {
   renameConversation: (id: string, title: string) => Promise<void>
   setActiveConversation: (id: string | null) => Promise<void>
   loadMessages: (conversationId: string) => Promise<void>
-  addMessage: (data: Omit<Message, 'id' | 'createdAt'>) => Promise<Message>
+  addMessage: (data: Omit<Message, 'id' | 'createdAt' | 'timestamp'>) => Promise<Message>
   updateMessage: (id: string, data: Partial<Message>) => void
   deleteMessagesFrom: (messageId: string) => Promise<void>
 }

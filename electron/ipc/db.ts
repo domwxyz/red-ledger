@@ -76,6 +76,7 @@ export class DatabaseManager {
         role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
         content TEXT NOT NULL,
         tool_calls TEXT,
+        timestamp TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       );
@@ -129,6 +130,7 @@ export class DatabaseManager {
       role: row.role as Message['role'],
       content: row.content as string,
       toolCalls: row.tool_calls as string | undefined,
+      timestamp: row.timestamp as string,
       createdAt: row.created_at as number
     }
   }
@@ -227,21 +229,23 @@ export class DatabaseManager {
       return rows.map(r => this.toMessage(r))
     })
 
-    ipcMain.handle('db:createMessage', (_event, data: Omit<Message, 'id' | 'createdAt'>) => {
+    ipcMain.handle('db:createMessage', (_event, data: Omit<Message, 'id' | 'createdAt' | 'timestamp'>) => {
       const id = uuidv4()
       const now = Date.now()
+      const timestamp = new Date().toISOString()
 
       const createInTransaction = this.getDatabase().transaction(() => {
         this.getStatement(
           'createMessage',
-          `INSERT INTO messages (id, conversation_id, role, content, tool_calls, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`
+          `INSERT INTO messages (id, conversation_id, role, content, tool_calls, timestamp, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
         ).run(
           id,
           data.conversationId,
           data.role,
           data.content,
           data.toolCalls || null,
+          timestamp,
           now
         )
 
