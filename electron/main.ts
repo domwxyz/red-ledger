@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow, dialog, Menu } from 'electron'
 import { join, basename } from 'path'
 import { readFileSync } from 'fs'
 import { resolveSettingsPath, resolveDbPath } from './services/SettingsService'
@@ -54,6 +54,45 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  // ─── Right-click context menu (Copy / Cut / Paste / Select All) ──────────
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const { editFlags, isEditable, selectionText } = params
+    const hasSelection = selectionText.trim().length > 0
+
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'Cut',
+        role: 'cut',
+        enabled: isEditable && hasSelection && editFlags.canCut,
+        visible: isEditable
+      },
+      {
+        label: 'Copy',
+        role: 'copy',
+        enabled: hasSelection && editFlags.canCopy,
+        visible: hasSelection || isEditable
+      },
+      {
+        label: 'Paste',
+        role: 'paste',
+        enabled: isEditable && editFlags.canPaste,
+        visible: isEditable
+      },
+      { type: 'separator', visible: isEditable },
+      {
+        label: 'Select All',
+        role: 'selectAll',
+        enabled: editFlags.canSelectAll,
+        visible: isEditable
+      }
+    ])
+
+    // Only show the menu if there's something useful to show
+    if (hasSelection || isEditable) {
+      menu.popup()
+    }
+  })
 
   mainWindow.on('closed', () => {
     mainWindow = null
