@@ -133,12 +133,6 @@ export function MessageBubble({ message, isStreaming, onRetry }: MessageBubblePr
     return list
   }, [copyAction, onRetry, isStreaming, message.role])
 
-  const align = message.role === 'user' ? 'right' : 'left'
-
-  if (message.role === 'system') return null // Don't render system messages
-
-  // ─── User Message ──────────────────────────────────────────────────────────
-
   // Parse user message: separate text from attachment blocks
   const userParts = useMemo(() => {
     if (message.role !== 'user') return null
@@ -157,6 +151,19 @@ export function MessageBubble({ message, isStreaming, onRetry }: MessageBubblePr
     }
     return { text, attachments }
   }, [message.content, message.role])
+
+  // ─── Assistant Message ─────────────────────────────────────────────────────
+
+  const segments = useMemo(
+    () => buildSegments(message.content, toolCalls),
+    [message.content, toolCalls]
+  )
+
+  const align = message.role === 'user' ? 'right' : 'left'
+
+  if (message.role === 'system') return null // Don't render system messages
+
+  // ─── User Message ──────────────────────────────────────────────────────────
 
   if (message.role === 'user') {
     const { text, attachments } = userParts!
@@ -185,13 +192,6 @@ export function MessageBubble({ message, isStreaming, onRetry }: MessageBubblePr
       </div>
     )
   }
-
-  // ─── Assistant Message ─────────────────────────────────────────────────────
-
-  const segments = useMemo(
-    () => buildSegments(message.content, toolCalls),
-    [message.content, toolCalls]
-  )
 
   // Determine if the last segment is a text segment (for streaming cursor placement)
   const lastSegment = segments[segments.length - 1]

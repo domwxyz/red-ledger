@@ -1,14 +1,18 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
 import { join, basename } from 'path'
 import { readFileSync } from 'fs'
-import { DatabaseManager } from './ipc/db'
-import { registerContextHandlers } from './ipc/context'
-import { registerSettingsHandlers } from './ipc/settings'
-import { registerFsHandlers } from './ipc/fs'
+import { resolveSettingsPath, resolveDbPath } from './services/SettingsService'
+import { registerDbHandlers, getConversationService } from './ipc/db'
+import { registerContextHandlers, getContextService } from './ipc/context'
+import { registerSettingsHandlers, getCurrentSettings } from './ipc/settings'
+import { registerFsHandlers, getWorkspaceService } from './ipc/fs'
 import { registerLlmHandlers } from './ipc/llm'
 import { registerSearchHandlers } from './ipc/search'
+import { handleIpc } from './ipc/typedIpc'
+import { assertObject } from './ipc/validate'
 
 let mainWindow: BrowserWindow | null = null
+let ipcHandlersRegistered = false
 
 // ─── Single Instance Lock ────────────────────────────────────────────────────
 
@@ -42,9 +46,6 @@ function createWindow(): void {
     }
   })
 
-  // Register all IPC handlers
-  registerIpcHandlers()
-
   // Load the app
   if (process.env.NODE_ENV === 'development' || process.env.ELECTRON_RENDERER_URL) {
     const url = process.env.ELECTRON_RENDERER_URL || 'http://localhost:5173'
@@ -59,13 +60,62 @@ function createWindow(): void {
   })
 }
 
+// ─── Path Resolution ────────────────────────────────────────────────────────
+
+function getContextDir(): string {
+  return join(app.getPath('userData'), 'contexts')
+}
+
+function getBundledContextDir(): string {
+  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+    return join(app.getAppPath(), 'contexts')
+  }
+  return join(process.resourcesPath, 'contexts')
+}
+
 // ─── IPC Handler Registration ────────────────────────────────────────────────
 
 function registerIpcHandlers(): void {
-  if (!mainWindow) return
+  if (ipcHandlersRegistered) return
+  ipcHandlersRegistered = true
 
-  // Dialog handler
-  ipcMain.handle('dialog:confirm', async (_event, options: { title: string; message: string; detail?: string }) => {
+  // Resolve paths
+  const settingsPath = resolveSettingsPath(process.resourcesPath, app.getPath('userData'))
+  const dbPath = resolveDbPath(process.resourcesPath, app.getPath('userData'))
+
+  // 1. Database (no dependencies)
+  registerDbHandlers(dbPath)
+
+  // 2. Settings (wires workspace path side effect)
+  registerSettingsHandlers(settingsPath, (settings) => {
+    // When settings change, sync workspace path to the workspace service
+    // This replaces the old hidden coupling between settings.ts and fs.ts
+    const ws = getWorkspaceService()
+    if (ws) {
+      ws.setWorkspacePath(settings.lastWorkspacePath ?? null)
+    }
+  })
+
+  // 3. File system (needs settings for strict mode checks)
+  registerFsHandlers(getCurrentSettings)
+  // Sync persisted workspace path now that WorkspaceService exists.
+  getWorkspaceService().setWorkspacePath(getCurrentSettings().lastWorkspacePath ?? null)
+
+  // 4. Context files
+  registerContextHandlers(getContextDir(), getBundledContextDir())
+
+  // 5. Search (needs settings for API keys)
+  registerSearchHandlers(getCurrentSettings)
+
+  // 6. LLM streaming (needs settings + context for system prompt)
+  registerLlmHandlers({
+    getSettings: getCurrentSettings,
+    getSystemPrompt: () => getContextService().assembleSystemPrompt()
+  })
+
+  // 7. Dialog handlers (remain inline — they're simple and window-dependent)
+  handleIpc('dialog:confirm', async (_event, options) => {
+    assertObject(options, 'options')
     if (!mainWindow) return false
     const result = await dialog.showMessageBox(mainWindow, {
       type: 'question',
@@ -78,8 +128,7 @@ function registerIpcHandlers(): void {
     return result.response === 1
   })
 
-  // Open file dialog — returns the text content of a user-selected file, or null if cancelled
-  ipcMain.handle('dialog:openTextFile', async () => {
+  handleIpc('dialog:openTextFile', async () => {
     if (!mainWindow) return null
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Load Context from File',
@@ -99,8 +148,7 @@ function registerIpcHandlers(): void {
     }
   })
 
-  // Open file dialog for attachments — returns array of { name, content } for selected files
-  ipcMain.handle('dialog:openAttachmentFiles', async () => {
+  handleIpc('dialog:openAttachmentFiles', async () => {
     if (!mainWindow) return []
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Attach Files',
@@ -118,22 +166,14 @@ function registerIpcHandlers(): void {
       } catch {
         return null
       }
-    }).filter(Boolean)
+    }).filter(Boolean) as { name: string; content: string }[]
   })
-
-  // Register module-specific handlers
-  registerContextHandlers()
-  registerSettingsHandlers()
-  registerFsHandlers(mainWindow)
-  registerLlmHandlers(mainWindow)
-  registerSearchHandlers()
 }
 
 // ─── App Lifecycle ───────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
-  // Initialize database
-  DatabaseManager.getInstance()
+  registerIpcHandlers()
 
   createWindow()
 
@@ -151,9 +191,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  // Close database connection
   try {
-    DatabaseManager.getInstance().close()
+    getConversationService()?.close()
   } catch {
     // Database may already be closed
   }

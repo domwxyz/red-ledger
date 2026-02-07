@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { OpenAIProvider } from './openai'
+import { registerProvider } from './registry'
 
 /**
  * OpenRouter provider — extends OpenAI with a different base URL.
@@ -32,3 +33,10 @@ export class OpenRouterProvider extends OpenAIProvider {
     }
   }
 }
+
+registerProvider({
+  name: 'openrouter',
+  displayName: 'OpenRouter',
+  defaultBaseUrl: 'https://openrouter.ai/api/v1',
+  factory: (apiKey, baseUrl) => new OpenRouterProvider(apiKey, baseUrl)
+})

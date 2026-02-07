@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
-import { useConversationStore, useSettingsStore, useUIStore } from '@/store'
+import { useConversationStore, useSettingsStore } from '@/store'
 import { formatError } from '@/lib/errors'
+import { notify } from '@/lib/notify'
 import type { StreamChunk, ToolCall, LLMRequest, Message, Attachment } from '@/types'
 
 const STREAM_THROTTLE_MS = 50
@@ -18,6 +19,7 @@ export function useStreaming() {
   const [isStreaming, setIsStreaming] = useState(false)
 
   const cleanupRef = useRef<(() => void) | null>(null)
+  const tempMessageIdRef = useRef<string | null>(null)
   const contentRef = useRef('')
   const toolCallsRef = useRef<ToolCall[]>([])
   const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -30,6 +32,13 @@ export function useStreaming() {
     if (throttleRef.current) {
       clearTimeout(throttleRef.current)
       throttleRef.current = null
+    }
+    if (tempMessageIdRef.current) {
+      const tempId = tempMessageIdRef.current
+      useConversationStore.setState((state) => ({
+        messages: state.messages.filter((m) => m.id !== tempId)
+      }))
+      tempMessageIdRef.current = null
     }
     setIsStreaming(false)
     contentRef.current = ''
@@ -89,6 +98,7 @@ export function useStreaming() {
         timestamp: new Date().toISOString(),
         createdAt: Date.now()
       }
+      tempMessageIdRef.current = tempId
       useConversationStore.setState((state) => ({
         messages: [...state.messages, tempMessage]
       }))
@@ -145,7 +155,7 @@ export function useStreaming() {
           }
 
           case 'error': {
-            useUIStore.getState().addToast({
+            notify({
               type: 'error',
               message: chunk.error || 'Streaming error'
             })
@@ -178,8 +188,9 @@ export function useStreaming() {
                     m.id === tempId ? savedMsg : m
                   )
                 }))
+                tempMessageIdRef.current = null
               }).catch((err) => {
-                useUIStore.getState().addToast({
+                notify({
                   type: 'error',
                   message: formatError(err)
                 })
@@ -189,6 +200,7 @@ export function useStreaming() {
               useConversationStore.setState((state) => ({
                 messages: state.messages.filter((m) => m.id !== tempId)
               }))
+              tempMessageIdRef.current = null
             }
 
             setIsStreaming(false)
@@ -203,8 +215,15 @@ export function useStreaming() {
       cleanupRef.current = cleanup
 
     } catch (err) {
+      if (tempMessageIdRef.current) {
+        const tempId = tempMessageIdRef.current
+        useConversationStore.setState((state) => ({
+          messages: state.messages.filter((m) => m.id !== tempId)
+        }))
+        tempMessageIdRef.current = null
+      }
       setIsStreaming(false)
-      useUIStore.getState().addToast({
+      notify({
         type: 'error',
         message: formatError(err)
       })

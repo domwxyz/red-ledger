@@ -1,83 +1,37 @@
-import { app, ipcMain } from 'electron'
-import { join } from 'path'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'fs'
-
-type ContextType = 'system' | 'user' | 'org'
-
-const CONTEXT_FILES: Record<ContextType, string> = {
-  system: 'system.md',
-  user: 'user.md',
-  org: 'org.md'
-}
-
-function getContextDir(): string {
-  return join(app.getPath('userData'), 'contexts')
-}
-
-function getBundledContextDir(): string {
-  // In dev, contexts/ is at project root. In production, it's in resources/contexts/
-  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
-    return join(app.getAppPath(), 'contexts')
-  }
-  return join(process.resourcesPath, 'contexts')
-}
+import { handleIpc } from './typedIpc'
+import { assertContextType, assertString } from './validate'
+import { ContextService } from '../services/ContextService'
 
 /**
- * Ensure context directory and files exist.
- * On first access, copy from bundled seed files if needed.
+ * Thin IPC adapter for context file operations.
+ * All business logic lives in ContextService.
  */
-function ensureContextFiles(): void {
-  const contextDir = getContextDir()
-  const bundledDir = getBundledContextDir()
 
-  if (!existsSync(contextDir)) {
-    mkdirSync(contextDir, { recursive: true })
-  }
+let service: ContextService
 
-  for (const [, filename] of Object.entries(CONTEXT_FILES)) {
-    const targetPath = join(contextDir, filename)
-    if (!existsSync(targetPath)) {
-      const bundledPath = join(bundledDir, filename)
-      if (existsSync(bundledPath)) {
-        copyFileSync(bundledPath, targetPath)
-      } else {
-        // Create empty file if bundled seed is also missing
-        writeFileSync(targetPath, '', 'utf-8')
-      }
-    }
+export function getContextService(): ContextService {
+  if (!service) {
+    throw new Error('ContextService not initialized')
   }
+  return service
 }
 
-export function registerContextHandlers(): void {
-  // Ensure context files exist on first registration
-  ensureContextFiles()
+export function registerContextHandlers(contextDir: string, bundledDir: string): void {
+  service = new ContextService(contextDir, bundledDir)
 
-  ipcMain.handle('context:load', (_event, type: ContextType) => {
-    try {
-      const filePath = join(getContextDir(), CONTEXT_FILES[type])
-      if (!existsSync(filePath)) {
-        return ''
-      }
-      return readFileSync(filePath, 'utf-8')
-    } catch {
-      return ''
-    }
+  handleIpc('context:load', (_e, type) => {
+    assertContextType(type)
+    return service.load(type)
   })
 
-  ipcMain.handle('context:save', (_event, type: ContextType, content: string) => {
-    const filePath = join(getContextDir(), CONTEXT_FILES[type])
-    writeFileSync(filePath, content, 'utf-8')
+  handleIpc('context:save', (_e, type, content) => {
+    assertContextType(type)
+    assertString(content, 'content')
+    return service.save(type, content)
   })
 
-  ipcMain.handle('context:loadDefault', (_event, type: ContextType) => {
-    try {
-      const bundledPath = join(getBundledContextDir(), CONTEXT_FILES[type])
-      if (existsSync(bundledPath)) {
-        return readFileSync(bundledPath, 'utf-8')
-      }
-      return ''
-    } catch {
-      return ''
-    }
+  handleIpc('context:loadDefault', (_e, type) => {
+    assertContextType(type)
+    return service.loadDefault(type)
   })
 }

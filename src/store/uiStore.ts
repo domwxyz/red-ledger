@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Toast } from '@/types'
+import { onNotify } from '@/lib/notify'
 
 type SidebarTab = 'conversations' | 'workspace' | 'settings'
 
@@ -49,3 +50,6 @@ export const useUIStore = create<UIState>((set, get) => ({
       toasts: state.toasts.filter((t) => t.id !== id)
     }))
 }))
+
+// Bridge: route notify() calls into the UI store's toast system
+onNotify((toast) => useUIStore.getState().addToast(toast))

@@ -1,5 +1,6 @@
 import axios, { AxiosResponse } from 'axios'
-import { BaseLLMProvider, type ProviderSendOptions, type AbortHandle, type ToolDefinition } from './base'
+import { BaseLLMProvider, type ProviderSendOptions, type AbortHandle } from './base'
+import { registerProvider } from './registry'
 import type { StreamChunk, ToolCall } from '../../../src/types'
 
 /**
@@ -20,6 +21,9 @@ export class OpenAIProvider extends BaseLLMProvider {
       if (!controller.signal.aborted) {
         const message = err instanceof Error ? err.message : String(err)
         options.onChunk({ type: 'error', error: message })
+      } else {
+        // Ensure orchestrators waiting on chunks always receive a terminal signal.
+        options.onChunk({ type: 'done' })
       }
     })
 
@@ -167,11 +171,14 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     }
 
-    // If we exited the loop without a [DONE], flush and finish
-    if (!controller.signal.aborted) {
-      this._flushToolCalls(pendingToolCalls, onChunk)
+    // If we exited the loop without a [DONE], finish cleanly.
+    if (controller.signal.aborted) {
       onChunk({ type: 'done' })
+      return
     }
+
+    this._flushToolCalls(pendingToolCalls, onChunk)
+    onChunk({ type: 'done' })
   }
 
   /**
@@ -223,3 +230,10 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
   }
 }
+
+registerProvider({
+  name: 'openai',
+  displayName: 'OpenAI',
+  defaultBaseUrl: 'https://api.openai.com/v1',
+  factory: (apiKey, baseUrl) => new OpenAIProvider(apiKey, baseUrl)
+})

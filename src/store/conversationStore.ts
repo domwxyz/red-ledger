@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Conversation, Message } from '@/types'
 import { formatError } from '@/lib/errors'
-import { useUIStore } from './uiStore'
+import { notify } from '@/lib/notify'
 
 interface ConversationState {
   conversations: Conversation[]
@@ -32,10 +32,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       const conversations = await window.redLedger.listConversations()
       set({ conversations })
     } catch (err) {
-      useUIStore.getState().addToast({
-        type: 'error',
-        message: formatError(err)
-      })
+      notify({ type: 'error', message: formatError(err) })
     }
   },
 
@@ -50,10 +47,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       }))
       return conversation
     } catch (err) {
-      useUIStore.getState().addToast({
-        type: 'error',
-        message: formatError(err)
-      })
+      notify({ type: 'error', message: formatError(err) })
       throw err
     }
   },
@@ -69,10 +63,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         messages: activeConversationId === id ? [] : state.messages
       }))
     } catch (err) {
-      useUIStore.getState().addToast({
-        type: 'error',
-        message: formatError(err)
-      })
+      notify({ type: 'error', message: formatError(err) })
     }
   },
 
@@ -86,10 +77,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         )
       }))
     } catch (err) {
-      useUIStore.getState().addToast({
-        type: 'error',
-        message: formatError(err)
-      })
+      notify({ type: 'error', message: formatError(err) })
     }
   },
 
@@ -112,10 +100,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       }
     } catch (err) {
       set({ isLoadingMessages: false })
-      useUIStore.getState().addToast({
-        type: 'error',
-        message: formatError(err)
-      })
+      notify({ type: 'error', message: formatError(err) })
     }
   },
 
@@ -141,10 +126,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
       return message
     } catch (err) {
-      useUIStore.getState().addToast({
-        type: 'error',
-        message: formatError(err)
-      })
+      notify({ type: 'error', message: formatError(err) })
       throw err
     }
   },
@@ -172,10 +154,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         messages: state.messages.slice(0, msgIndex)
       }))
     } catch (err) {
-      useUIStore.getState().addToast({
-        type: 'error',
-        message: formatError(err)
-      })
+      notify({ type: 'error', message: formatError(err) })
     }
   }
 }))

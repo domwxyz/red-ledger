@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { FolderOpen } from 'lucide-react'
-import { useUIStore } from '@/store'
+import { useUIStore, useSettingsStore } from '@/store'
 import { FileTree } from '../FileTree/FileTree'
 import { FileViewer } from './FileViewer'
 import type { FileNode } from '@/types'
@@ -9,16 +9,21 @@ export function WorkspaceTree() {
   const workspacePath = useUIStore((s) => s.workspacePath)
   const setWorkspacePath = useUIStore((s) => s.setWorkspacePath)
   const selectedFilePath = useUIStore((s) => s.selectedFilePath)
+  const settings = useSettingsStore((s) => s.settings)
+  const saveSettings = useSettingsStore((s) => s.saveSettings)
   const [files, setFiles] = useState<FileNode[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleOpenFolder = async () => {
+  const handleOpenFolder = useCallback(async () => {
     if (!window.redLedger) return
     const path = await window.redLedger.selectWorkspace()
     if (path) {
       setWorkspacePath(path)
+      if (settings && settings.lastWorkspacePath !== path) {
+        saveSettings({ ...settings, lastWorkspacePath: path })
+      }
     }
-  }
+  }, [setWorkspacePath, settings, saveSettings])
 
   useEffect(() => {
     if (!workspacePath) {

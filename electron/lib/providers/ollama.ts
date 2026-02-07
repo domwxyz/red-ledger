@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { BaseLLMProvider, type ProviderSendOptions, type AbortHandle } from './base'
+import { registerProvider } from './registry'
 
 /**
  * Ollama provider — local LLM server.
@@ -26,6 +27,9 @@ export class OllamaProvider extends BaseLLMProvider {
         }
 
         options.onChunk({ type: 'error', error: message })
+      } else {
+        // Ensure orchestrators waiting on chunks always receive a terminal signal.
+        options.onChunk({ type: 'done' })
       }
     })
 
@@ -115,10 +119,8 @@ export class OllamaProvider extends BaseLLMProvider {
       }
     }
 
-    // If we exited the loop without done=true, send done anyway
-    if (!controller.signal.aborted) {
-      onChunk({ type: 'done' })
-    }
+    // If we exited the loop without done=true, send done anyway.
+    onChunk({ type: 'done' })
   }
 
   async listModels(): Promise<string[]> {
@@ -141,3 +143,10 @@ export class OllamaProvider extends BaseLLMProvider {
     }
   }
 }
+
+registerProvider({
+  name: 'ollama',
+  displayName: 'Ollama',
+  defaultBaseUrl: 'http://localhost:11434',
+  factory: (apiKey, baseUrl) => new OllamaProvider(apiKey, baseUrl)
+})

@@ -18,26 +18,45 @@ export function SettingsPanel() {
   const [models, setModels] = useState<string[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsFetchFailed, setModelsFetchFailed] = useState(false)
+  const activeProviderConfig = settings
+    ? settings.providers[settings.activeProvider]
+    : null
+  const modelFetchKey = settings && activeProviderConfig
+    ? `${settings.activeProvider}|${activeProviderConfig.baseUrl}|${activeProviderConfig.apiKey}`
+    : ''
 
-  // Fetch models when the active provider changes
+  // Fetch models when provider identity/config changes.
   useEffect(() => {
     if (!settings || !window.redLedger) return
+    let cancelled = false
 
     setModels([])
     setModelsFetchFailed(false)
     setModelsLoading(true)
 
-    window.redLedger
-      .listModels(settings.activeProvider)
-      .then((list) => {
-        setModels(list)
-        setModelsFetchFailed(false)
-      })
-      .catch(() => {
-        setModelsFetchFailed(true)
-      })
-      .finally(() => setModelsLoading(false))
-  }, [settings?.activeProvider])
+    const timer = setTimeout(() => {
+      window.redLedger
+        .listModels(settings.activeProvider)
+        .then((list) => {
+          if (cancelled) return
+          setModels(list)
+          setModelsFetchFailed(false)
+        })
+        .catch(() => {
+          if (cancelled) return
+          setModelsFetchFailed(true)
+        })
+        .finally(() => {
+          if (!cancelled) setModelsLoading(false)
+        })
+    }, 250)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelFetchKey, settings?.activeProvider])
 
   if (!settings) {
     return (

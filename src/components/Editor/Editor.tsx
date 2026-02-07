@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import { EditorView, keymap, placeholder as cmPlaceholder, lineNumbers } from '@codemirror/view'
+import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'

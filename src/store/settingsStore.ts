@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Settings, ProviderName } from '@/types'
 import { formatError } from '@/lib/errors'
-import { useUIStore } from './uiStore'
+import { notify } from '@/lib/notify'
 
 const SAVE_DEBOUNCE_MS = 500
 
@@ -32,10 +32,7 @@ function debouncedPersist(settings: Settings) {
     try {
       await window.redLedger.saveSettings(settings)
     } catch (err) {
-      useUIStore.getState().addToast({
-        type: 'error',
-        message: formatError(err)
-      })
+      notify({ type: 'error', message: formatError(err) })
     }
   }, SAVE_DEBOUNCE_MS)
 }
@@ -54,20 +51,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     try {
       const settings = await window.redLedger.loadSettings()
       set({ settings, isLoading: false })
-
-      // Apply last workspace path to UI store — validate it still exists
-      if (settings.lastWorkspacePath) {
-        try {
-          await window.redLedger.listFiles()
-          useUIStore.getState().setWorkspacePath(settings.lastWorkspacePath)
-        } catch {
-          useUIStore.getState().setWorkspacePath(null)
-          useUIStore.getState().addToast({
-            type: 'warning',
-            message: `Previous workspace no longer exists: ${settings.lastWorkspacePath}`
-          })
-        }
-      }
     } catch (err) {
       const message = formatError(err)
       set({ isLoading: false, error: message })
