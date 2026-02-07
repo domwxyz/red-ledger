@@ -88,11 +88,15 @@ function registerIpcHandlers(): void {
 
   // 2. Settings (wires workspace path side effect)
   registerSettingsHandlers(settingsPath, (settings) => {
-    // When settings change, sync workspace path to the workspace service
-    // This replaces the old hidden coupling between settings.ts and fs.ts
-    const ws = getWorkspaceService()
-    if (ws) {
-      ws.setWorkspacePath(settings.lastWorkspacePath ?? null)
+    // When settings change, sync workspace path to the workspace service.
+    // This replaces the old hidden coupling between settings.ts and fs.ts.
+    // Guard: WorkspaceService may not exist yet during initial settings load
+    // (registerFsHandlers runs after this). The initial sync is handled
+    // explicitly below.
+    try {
+      getWorkspaceService().setWorkspacePath(settings.lastWorkspacePath ?? null)
+    } catch {
+      // WorkspaceService not initialized yet — initial sync handled below
     }
   })
 
