@@ -209,6 +209,13 @@
   animation: blink 1s step-end infinite;
 }
 
+.thinking-inline-indicator {
+  margin-left: 6px;
+  font-size: 11px;
+  color: rgba(44, 44, 44, 0.55);
+  user-select: none;
+}
+
 /* ─── Panel resize handle styling ─────────────────────────────────────────── */
 
 [data-panel-group-direction="horizontal"] > [data-panel-resize-handle-id] {

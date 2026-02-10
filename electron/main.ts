@@ -38,6 +38,7 @@ function createWindow(): void {
     minHeight: 600,
     title: 'Red Ledger',
     backgroundColor: '#FDFCF8',
+    icon: join(__dirname, '../../build/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       nodeIntegration: false,

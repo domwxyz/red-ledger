@@ -41,6 +41,7 @@ export interface Message {
   conversationId: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  thinking?: string      // optional raw thinking/reasoning token stream
   toolCalls?: string     // JSON-serialized ToolCall[]
   timestamp: string      // ISO 8601 system timestamp captured when message was created
   createdAt: number
@@ -71,7 +72,7 @@ export interface LLMRequest {
 // ─── Stream Chunks ───────────────────────────────────────────────────────────
 
 export interface StreamChunk {
-  type: 'text' | 'tool_call' | 'tool_result' | 'error' | 'done'
+  type: 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'error' | 'done'
   content?: string
   toolCall?: ToolCall
   error?: string

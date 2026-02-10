@@ -2,8 +2,25 @@ import axios from 'axios'
 import { BaseLLMProvider, type ProviderSendOptions, type AbortHandle } from './base'
 import { registerProvider } from './registry'
 
+function extractThinking(value: unknown): string {
+  if (typeof value === 'string') return value
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => extractThinking(item))
+      .join('')
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return extractThinking(record.text || record.content)
+  }
+
+  return ''
+}
+
 /**
- * Ollama provider — local LLM server.
+ * Ollama provider - local LLM server.
  * Uses NDJSON streaming (one JSON object per line) instead of SSE.
  * No API key required. Longer timeout (300s) because first model load can be slow.
  * Tool use support depends on the specific Ollama model; we include tools when
@@ -88,6 +105,11 @@ export class OllamaProvider extends BaseLLMProvider {
 
         try {
           const data = JSON.parse(trimmed)
+
+          const thinking = extractThinking(data.message?.thinking)
+          if (thinking) {
+            onChunk({ type: 'thinking', content: thinking })
+          }
 
           // Text content
           if (data.message?.content) {

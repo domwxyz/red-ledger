@@ -5,6 +5,7 @@ import { notify } from '@/lib/notify'
 import type { StreamChunk, ToolCall, LLMRequest, Message, Attachment } from '@/types'
 
 const STREAM_THROTTLE_MS = 50
+const THINKING_ACTIVE_WINDOW_MS = 1500
 
 /**
  * React hook that manages the LLM streaming lifecycle.
@@ -17,12 +18,34 @@ const STREAM_THROTTLE_MS = 50
  */
 export function useStreaming() {
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isReceivingThinking, setIsReceivingThinking] = useState(false)
 
   const cleanupRef = useRef<(() => void) | null>(null)
   const tempMessageIdRef = useRef<string | null>(null)
   const contentRef = useRef('')
+  const thinkingRef = useRef('')
   const toolCallsRef = useRef<ToolCall[]>([])
   const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const thinkingActivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearThinkingActivity = useCallback(() => {
+    setIsReceivingThinking(false)
+    if (thinkingActivityTimerRef.current) {
+      clearTimeout(thinkingActivityTimerRef.current)
+      thinkingActivityTimerRef.current = null
+    }
+  }, [])
+
+  const markThinkingActivity = useCallback(() => {
+    setIsReceivingThinking(true)
+    if (thinkingActivityTimerRef.current) {
+      clearTimeout(thinkingActivityTimerRef.current)
+    }
+    thinkingActivityTimerRef.current = setTimeout(() => {
+      thinkingActivityTimerRef.current = null
+      setIsReceivingThinking(false)
+    }, THINKING_ACTIVE_WINDOW_MS)
+  }, [])
 
   const cancel = useCallback(() => {
     if (cleanupRef.current) {
@@ -41,9 +64,11 @@ export function useStreaming() {
       tempMessageIdRef.current = null
     }
     setIsStreaming(false)
+    clearThinkingActivity()
     contentRef.current = ''
+    thinkingRef.current = ''
     toolCallsRef.current = []
-  }, [])
+  }, [clearThinkingActivity])
 
   const sendMessage = useCallback(async (content: string, attachments?: Attachment[]) => {
     const store = useConversationStore.getState()
@@ -61,7 +86,9 @@ export function useStreaming() {
     }
 
     setIsStreaming(true)
+    clearThinkingActivity()
     contentRef.current = ''
+    thinkingRef.current = ''
     toolCallsRef.current = []
 
     try {
@@ -107,6 +134,7 @@ export function useStreaming() {
       const flushToStore = () => {
         useConversationStore.getState().updateMessage(tempId, {
           content: contentRef.current,
+          thinking: thinkingRef.current || undefined,
           toolCalls: toolCallsRef.current.length > 0
             ? JSON.stringify(toolCallsRef.current)
             : undefined
@@ -126,6 +154,13 @@ export function useStreaming() {
       // 4. Start the stream
       const cleanup = window.redLedger.sendMessage(request, (chunk: StreamChunk) => {
         switch (chunk.type) {
+          case 'thinking': {
+            thinkingRef.current += chunk.content || ''
+            markThinkingActivity()
+            scheduleFlush()
+            break
+          }
+
           case 'text': {
             contentRef.current += chunk.content || ''
             scheduleFlush()
@@ -155,6 +190,7 @@ export function useStreaming() {
           }
 
           case 'error': {
+            clearThinkingActivity()
             notify({
               type: 'error',
               message: chunk.error || 'Streaming error'
@@ -163,6 +199,7 @@ export function useStreaming() {
           }
 
           case 'done': {
+            clearThinkingActivity()
             // Cancel any pending throttled flush
             if (throttleRef.current) {
               clearTimeout(throttleRef.current)
@@ -170,14 +207,16 @@ export function useStreaming() {
             }
 
             const finalContent = contentRef.current
+            const finalThinking = thinkingRef.current
             const finalToolCalls = toolCallsRef.current
 
-            if (finalContent || finalToolCalls.length > 0) {
+            if (finalContent || finalThinking || finalToolCalls.length > 0) {
               // Persist to DB, then atomically replace the temp message
               window.redLedger.createMessage({
                 conversationId,
                 role: 'assistant',
                 content: finalContent || '_(No text response)_',
+                thinking: finalThinking || undefined,
                 toolCalls: finalToolCalls.length > 0
                   ? JSON.stringify(finalToolCalls)
                   : undefined
@@ -205,6 +244,7 @@ export function useStreaming() {
 
             setIsStreaming(false)
             contentRef.current = ''
+            thinkingRef.current = ''
             toolCallsRef.current = []
             cleanupRef.current = null
             break
@@ -223,12 +263,13 @@ export function useStreaming() {
         tempMessageIdRef.current = null
       }
       setIsStreaming(false)
+      clearThinkingActivity()
       notify({
         type: 'error',
         message: formatError(err)
       })
     }
-  }, [])
+  }, [clearThinkingActivity, markThinkingActivity])
 
   const retry = useCallback(async () => {
     if (isStreaming) return
@@ -255,6 +296,7 @@ export function useStreaming() {
 
   return {
     isStreaming,
+    isReceivingThinking,
     sendMessage,
     cancel,
     retry

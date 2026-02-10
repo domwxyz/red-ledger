@@ -60,6 +60,7 @@
   "build": {
     "appId": "com.redledger.app",
     "productName": "Red Ledger",
+    "icon": "build/icon.png",
     "directories": {
       "output": "dist"
     },

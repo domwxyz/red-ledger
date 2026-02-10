@@ -87,6 +87,10 @@ export class LlmService {
           maxTokens: request.maxTokens ?? settings.maxTokens,
           onChunk: (chunk: StreamChunk) => {
             switch (chunk.type) {
+              case 'thinking':
+                sink.send(chunk)
+                break
+
               case 'text':
                 textAccumulated += chunk.content || ''
                 sink.send(chunk)
@@ -123,9 +127,7 @@ export class LlmService {
       this.activeStreams.delete(channel)
 
       if (streamDone === 'error' || streamDone === 'done') {
-        if (streamDone === 'done') {
-          sink.send({ type: 'done' })
-        }
+        sink.send({ type: 'done' })
         return
       }
 

@@ -7,10 +7,11 @@ const NEAR_BOTTOM_PX = 150
 
 interface MessageListProps {
   isStreaming: boolean
+  isReceivingThinking: boolean
   onRetry: () => void
 }
 
-export function MessageList({ isStreaming, onRetry }: MessageListProps) {
+export function MessageList({ isStreaming, isReceivingThinking, onRetry }: MessageListProps) {
   const messages = useConversationStore((s) => s.messages)
   const isLoadingMessages = useConversationStore((s) => s.isLoadingMessages)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -61,9 +62,13 @@ export function MessageList({ isStreaming, onRetry }: MessageListProps) {
     }
   }
 
-  // Only show retry when not streaming and the conversation has finished (last message is a persisted assistant message)
+  // Show retry when idle and the latest message is persisted.
+  // This includes failed turns where the last message is still the user message.
   const lastMessage = messages[messages.length - 1]
-  const canRetry = !isStreaming && lastMessage?.role === 'assistant' && !lastMessage.id.startsWith('streaming-')
+  const canRetry = !isStreaming
+    && !!lastMessage
+    && !lastMessage.id.startsWith('streaming-')
+    && (lastMessage.role === 'assistant' || lastMessage.role === 'user')
 
   return (
     <div
@@ -75,6 +80,7 @@ export function MessageList({ isStreaming, onRetry }: MessageListProps) {
           key={message.id}
           message={message}
           isStreaming={message.id.startsWith('streaming-')}
+          isReceivingThinking={isReceivingThinking && message.id.startsWith('streaming-')}
           onRetry={canRetry && idx === lastUserIdx ? onRetry : undefined}
         />
       ))}

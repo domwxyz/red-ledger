@@ -20,6 +20,7 @@ marked.setOptions({
 interface MessageBubbleProps {
   message: Message
   isStreaming?: boolean
+  isReceivingThinking?: boolean
   /** If provided, a retry button is shown in the action bar. */
   onRetry?: () => void
 }
@@ -104,7 +105,12 @@ function extractUserText(content: string): string {
   return idx === -1 ? content : content.slice(0, idx)
 }
 
-export function MessageBubble({ message, isStreaming, onRetry }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  isStreaming,
+  isReceivingThinking,
+  onRetry
+}: MessageBubbleProps) {
   // Parse tool calls from JSON string if present
   const toolCalls = useMemo<ToolCall[]>(() => {
     if (!message.toolCalls) return []
@@ -160,6 +166,7 @@ export function MessageBubble({ message, isStreaming, onRetry }: MessageBubblePr
   )
 
   const align = message.role === 'user' ? 'right' : 'left'
+  const hasThinking = Boolean(message.thinking?.trim())
 
   if (message.role === 'system') return null // Don't render system messages
 
@@ -199,6 +206,21 @@ export function MessageBubble({ message, isStreaming, onRetry }: MessageBubblePr
 
   return (
     <div className="message-row group flex flex-col gap-2 items-start">
+      {hasThinking && (
+        <details className="max-w-[85%] border border-weathered rounded-card bg-white overflow-hidden group/thinking">
+          <summary className="inline-flex items-center gap-1.5 cursor-pointer px-3 py-2 text-xs text-soft-charcoal/70 hover:text-soft-charcoal select-none list-none [&::-webkit-details-marker]:hidden">
+            <span className="font-medium uppercase tracking-wide">Reasoning Trace</span>
+            {isReceivingThinking && (
+              <span className="thinking-inline-indicator ml-1">thinking...</span>
+            )}
+            <span className="text-[10px] opacity-50 group-open/thinking:rotate-90 transition-transform">&#9654;</span>
+          </summary>
+          <pre className="m-0 border-t border-weathered bg-base-200/40 px-3 py-2 text-xs font-mono whitespace-pre-wrap max-h-[260px] overflow-y-auto">
+            {message.thinking}
+          </pre>
+        </details>
+      )}
+
       {segments.map((seg, i) => {
         if (seg.kind === 'tool') {
           return (
@@ -219,9 +241,14 @@ export function MessageBubble({ message, isStreaming, onRetry }: MessageBubblePr
               className="prose prose-sm max-w-none"
               dangerouslySetInnerHTML={{ __html: seg.html }}
             />
-            {/* Streaming cursor — only on the very last text segment */}
+            {/* Streaming cursor - only on the very last text segment */}
             {isStreaming && isLastTextSegment && (
-              <span className="streaming-cursor" />
+              <span className="inline-flex items-center">
+                <span className="streaming-cursor" />
+                {isReceivingThinking && (
+                  <span className="thinking-inline-indicator">thinking...</span>
+                )}
+              </span>
             )}
           </div>
         )
@@ -231,14 +258,24 @@ export function MessageBubble({ message, isStreaming, onRetry }: MessageBubblePr
           show cursor in a minimal bubble so the user sees activity */}
       {isStreaming && !lastSegmentIsText && segments.length > 0 && (
         <div className="message-bubble assistant">
-          <span className="streaming-cursor" />
+          <span className="inline-flex items-center">
+            <span className="streaming-cursor" />
+            {isReceivingThinking && (
+              <span className="thinking-inline-indicator">thinking...</span>
+            )}
+          </span>
         </div>
       )}
 
       {/* If streaming but no segments yet (very start), show cursor */}
       {isStreaming && segments.length === 0 && (
         <div className="message-bubble assistant">
-          <span className="streaming-cursor" />
+          <span className="inline-flex items-center">
+            <span className="streaming-cursor" />
+            {isReceivingThinking && (
+              <span className="thinking-inline-indicator">thinking...</span>
+            )}
+          </span>
         </div>
       )}
 

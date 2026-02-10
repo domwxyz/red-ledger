@@ -20,7 +20,11 @@ export function ChatPanel() {
         <>
           {/* Message Feed */}
           <div className="flex-1 overflow-hidden">
-            <MessageList isStreaming={streaming.isStreaming} onRetry={streaming.retry} />
+            <MessageList
+              isStreaming={streaming.isStreaming}
+              isReceivingThinking={streaming.isReceivingThinking}
+              onRetry={streaming.retry}
+            />
           </div>
 
           {/* Input */}

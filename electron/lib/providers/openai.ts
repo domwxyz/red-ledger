@@ -3,6 +3,122 @@ import { BaseLLMProvider, type ProviderSendOptions, type AbortHandle } from './b
 import { registerProvider } from './registry'
 import type { StreamChunk, ToolCall } from '../../../src/types'
 
+const MAX_429_RETRIES = 3
+const BASE_RETRY_DELAY_MS = 1000
+const MAX_RETRY_DELAY_MS = 30_000
+
+function extractThinkingText(value: unknown): string {
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => extractThinkingText(item)).join('')
+  }
+
+  if (!value || typeof value !== 'object') {
+    return ''
+  }
+
+  const record = value as Record<string, unknown>
+  if (typeof record.text === 'string') return record.text
+  if (typeof record.content === 'string') return record.content
+  if (typeof record.reasoning === 'string') return record.reasoning
+  if (typeof record.reasoning_content === 'string') return record.reasoning_content
+  if (typeof record.thinking === 'string') return record.thinking
+
+  return ''
+}
+
+function extractThinkingDelta(delta: unknown): string {
+  if (!delta || typeof delta !== 'object') return ''
+
+  const record = delta as Record<string, unknown>
+  const candidates = [
+    extractThinkingText(record.reasoning_content),
+    extractThinkingText(record.reasoning),
+    extractThinkingText(record.thinking),
+    extractThinkingText(record.reasoning_details)
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate) return candidate
+  }
+  return ''
+}
+
+function getHeaderValue(headers: unknown, headerName: string): string | undefined {
+  if (!headers || typeof headers !== 'object') return undefined
+
+  const candidate = headers as {
+    get?: (name: string) => string | undefined
+    [key: string]: unknown
+  }
+
+  if (typeof candidate.get === 'function') {
+    const viaGetter = candidate.get(headerName)
+    if (typeof viaGetter === 'string' && viaGetter.trim()) return viaGetter.trim()
+  }
+
+  for (const [key, value] of Object.entries(candidate)) {
+    if (key.toLowerCase() !== headerName.toLowerCase()) continue
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  }
+
+  return undefined
+}
+
+function parseRetryAfterMs(value: string | undefined): number | undefined {
+  if (!value) return undefined
+
+  const asSeconds = Number(value)
+  if (Number.isFinite(asSeconds) && asSeconds >= 0) {
+    return Math.ceil(asSeconds * 1000)
+  }
+
+  const asDate = Date.parse(value)
+  if (!Number.isNaN(asDate)) {
+    const deltaMs = asDate - Date.now()
+    if (deltaMs > 0) return deltaMs
+  }
+
+  return undefined
+}
+
+function computeBackoffMs(attempt: number): number {
+  const exponential = BASE_RETRY_DELAY_MS * (2 ** attempt)
+  return Math.min(exponential, MAX_RETRY_DELAY_MS)
+}
+
+async function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  if (ms <= 0) return
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup()
+      resolve()
+    }, ms)
+
+    const onAbort = () => {
+      clearTimeout(timer)
+      cleanup()
+      reject(new Error('Request aborted'))
+    }
+
+    const cleanup = () => {
+      signal.removeEventListener('abort', onAbort)
+    }
+
+    if (signal.aborted) {
+      onAbort()
+      return
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 /**
  * OpenAI-compatible streaming provider.
  * Handles SSE (Server-Sent Events) format from /chat/completions with stream: true.
@@ -50,19 +166,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       body.tool_choice = 'auto'
     }
 
-    let response: AxiosResponse
-
-    try {
-      response = await axios.post(`${this.baseUrl}/chat/completions`, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
-        responseType: 'stream',
-        timeout: 120_000,
-        signal: controller.signal
-      })
-    } catch (err) {
+    const throwAxiosError = async (err: unknown): Promise<never> => {
       if (axios.isAxiosError(err)) {
         // Try to extract API error message from the response body
         if (err.response?.data) {
@@ -83,6 +187,42 @@ export class OpenAIProvider extends BaseLLMProvider {
         throw new Error(`API error: ${err.message}`)
       }
       throw err
+    }
+
+    let response: AxiosResponse | null = null
+
+    for (let attempt = 0; attempt <= MAX_429_RETRIES; attempt++) {
+      try {
+        response = await axios.post(`${this.baseUrl}/chat/completions`, body, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          responseType: 'stream',
+          timeout: 120_000,
+          signal: controller.signal
+        })
+        break
+      } catch (err) {
+        const status = axios.isAxiosError(err) ? err.response?.status : undefined
+        const canRetry = status === 429 && attempt < MAX_429_RETRIES && !controller.signal.aborted
+
+        if (canRetry) {
+          const retryAfterHeader = getHeaderValue(
+            (err as { response?: { headers?: unknown } }).response?.headers,
+            'retry-after'
+          )
+          const retryDelayMs = parseRetryAfterMs(retryAfterHeader) ?? computeBackoffMs(attempt)
+          await sleep(retryDelayMs, controller.signal)
+          continue
+        }
+
+        await throwAxiosError(err)
+      }
+    }
+
+    if (!response) {
+      throw new Error('API request failed without a response')
     }
 
     const stream = response.data as AsyncIterable<Buffer>
@@ -127,6 +267,11 @@ export class OpenAIProvider extends BaseLLMProvider {
           if (!choice) continue
 
           const delta = choice.delta
+
+          const thinking = extractThinkingDelta(delta)
+          if (thinking) {
+            onChunk({ type: 'thinking', content: thinking })
+          }
 
           // Text content
           if (delta?.content) {

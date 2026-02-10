@@ -41,6 +41,7 @@ export class ConversationService {
         conversation_id TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
         content TEXT NOT NULL,
+        thinking TEXT,
         tool_calls TEXT,
         timestamp TEXT NOT NULL,
         created_at INTEGER NOT NULL,
@@ -72,6 +73,7 @@ export class ConversationService {
       conversationId: row.conversation_id as string,
       role: row.role as Message['role'],
       content: row.content as string,
+      thinking: row.thinking as string | undefined,
       toolCalls: row.tool_calls as string | undefined,
       timestamp: row.timestamp as string,
       createdAt: row.created_at as number
@@ -188,13 +190,14 @@ export class ConversationService {
     const createInTransaction = this.db.transaction(() => {
       this.stmt(
         'createMessage',
-        `INSERT INTO messages (id, conversation_id, role, content, tool_calls, timestamp, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO messages (id, conversation_id, role, content, thinking, tool_calls, timestamp, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         id,
         data.conversationId,
         data.role,
         data.content,
+        data.thinking ?? null,
         data.toolCalls || null,
         timestamp,
         now
@@ -222,10 +225,12 @@ export class ConversationService {
       'updateMessage',
       `UPDATE messages SET
         content = COALESCE(?, content),
+        thinking = COALESCE(?, thinking),
         tool_calls = COALESCE(?, tool_calls)
        WHERE id = ?`
     ).run(
       data.content ?? null,
+      data.thinking ?? null,
       data.toolCalls ?? null,
       id
     )
