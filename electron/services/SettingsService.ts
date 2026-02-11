@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS: Settings = {
     }
   },
   defaultModel: 'gpt-4',
+  temperatureEnabled: false,
   temperature: 0.7,
   maxTokens: 4096,
   strictMode: false,
@@ -122,6 +123,10 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     ? Math.round(Math.max(0, Math.min(2, s.temperature)) * 10) / 10
     : DEFAULT_SETTINGS.temperature
 
+  const temperatureEnabled = typeof s.temperatureEnabled === 'boolean'
+    ? s.temperatureEnabled
+    : DEFAULT_SETTINGS.temperatureEnabled
+
   // Clamp maxTokens: 1–128000
   const maxTokens = typeof s.maxTokens === 'number' && !isNaN(s.maxTokens)
     ? Math.max(1, Math.min(128000, Math.floor(s.maxTokens)))
@@ -131,6 +136,7 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     activeProvider,
     providers,
     defaultModel,
+    temperatureEnabled,
     temperature,
     maxTokens,
     strictMode: typeof s.strictMode === 'boolean' ? s.strictMode : DEFAULT_SETTINGS.strictMode,

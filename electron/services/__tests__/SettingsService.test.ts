@@ -6,6 +6,7 @@ describe('sanitizeSettings', () => {
   it('returns defaults for undefined input', () => {
     const result = sanitizeSettings(undefined)
     expect(result.activeProvider).toBe('openai')
+    expect(result.temperatureEnabled).toBe(false)
     expect(result.temperature).toBe(0.7)
     expect(result.maxTokens).toBe(4096)
     expect(result.strictMode).toBe(false)
@@ -15,9 +16,19 @@ describe('sanitizeSettings', () => {
   it('returns defaults for empty object', () => {
     const result = sanitizeSettings({})
     expect(result.activeProvider).toBe('openai')
+    expect(result.temperatureEnabled).toBe(false)
     expect(result.providers.openai.baseUrl).toBe('https://api.openai.com/v1')
     expect(result.providers.openrouter.baseUrl).toBe('https://openrouter.ai/api/v1')
     expect(result.providers.ollama.baseUrl).toBe('http://localhost:11434')
+  })
+
+  it('preserves valid temperatureEnabled value', () => {
+    expect(sanitizeSettings({ temperatureEnabled: true } as any).temperatureEnabled).toBe(true)
+    expect(sanitizeSettings({ temperatureEnabled: false } as any).temperatureEnabled).toBe(false)
+  })
+
+  it('defaults temperatureEnabled for invalid input', () => {
+    expect(sanitizeSettings({ temperatureEnabled: 'yes' as any } as any).temperatureEnabled).toBe(false)
   })
 
   it('clamps temperature to 0–2 range', () => {

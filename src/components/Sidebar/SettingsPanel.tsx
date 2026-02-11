@@ -189,9 +189,22 @@ export function SettingsPanel() {
 
       {/* Temperature */}
       <div>
+        <div className="flex items-center justify-between py-0.5 mb-1">
+          <label className="text-[11px] font-medium text-soft-charcoal/60 uppercase tracking-wide">
+            Temperature
+          </label>
+          <input
+            type="checkbox"
+            checked={settings.temperatureEnabled}
+            onChange={(e) => saveSettings({ ...settings, temperatureEnabled: e.target.checked })}
+            className="toggle toggle-sm toggle-primary"
+          />
+        </div>
         <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 flex justify-between uppercase tracking-wide">
-          <span>Temperature</span>
-          <span className="text-rca-red normal-case tabular-nums">{settings.temperature.toFixed(1)}</span>
+          <span>Value</span>
+          <span className={`normal-case tabular-nums ${settings.temperatureEnabled ? 'text-rca-red' : 'text-soft-charcoal/40'}`}>
+            {settings.temperature.toFixed(1)}
+          </span>
         </label>
         <input
           type="range"
@@ -199,10 +212,11 @@ export function SettingsPanel() {
           max="2"
           step="0.1"
           value={settings.temperature}
+          disabled={!settings.temperatureEnabled}
           onChange={(e) =>
             saveSettings({ ...settings, temperature: parseFloat(e.target.value) })
           }
-          className="range range-xs range-primary w-full"
+          className={`range range-xs range-primary w-full ${settings.temperatureEnabled ? '' : 'opacity-40 cursor-not-allowed'}`}
         />
       </div>
 

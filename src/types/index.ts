@@ -14,6 +14,7 @@ export interface Settings {
   activeProvider: ProviderName
   providers: Record<ProviderName, ProviderSettings>
   defaultModel: string
+  temperatureEnabled: boolean
   temperature: number     // 0.0–2.0
   maxTokens: number       // 1–128000
   strictMode: boolean

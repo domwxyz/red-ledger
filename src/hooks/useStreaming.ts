@@ -111,7 +111,7 @@ export function useStreaming() {
         messages,
         model: currentSettings.defaultModel,
         provider: currentSettings.activeProvider,
-        temperature: currentSettings.temperature,
+        ...(currentSettings.temperatureEnabled ? { temperature: currentSettings.temperature } : {}),
         maxTokens: currentSettings.maxTokens
       }
 

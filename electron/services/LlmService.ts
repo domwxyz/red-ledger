@@ -83,7 +83,7 @@ export class LlmService {
           messages,
           model: request.model,
           tools,
-          temperature: request.temperature ?? settings.temperature,
+          temperature: request.temperature,
           maxTokens: request.maxTokens ?? settings.maxTokens,
           onChunk: (chunk: StreamChunk) => {
             switch (chunk.type) {
