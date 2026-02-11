@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, Menu } from 'electron'
-import { join, basename } from 'path'
+import { join, basename, extname } from 'path'
 import { readFileSync } from 'fs'
+import { extractPdfText } from './services/PdfAttachmentService'
 import { resolveSettingsPath, resolveDbPath } from './services/SettingsService'
 import { registerDbHandlers, getConversationService } from './ipc/db'
 import { registerContextHandlers, getContextService } from './ipc/context'
@@ -13,6 +14,30 @@ import { assertObject } from './ipc/validate'
 
 let mainWindow: BrowserWindow | null = null
 let ipcHandlersRegistered = false
+const PDF_EMPTY_TEXT_NOTICE = '[No extractable text found in PDF.]'
+
+interface ParsedAttachment {
+  name: string
+  content: string
+}
+
+async function parseAttachmentFile(filePath: string): Promise<ParsedAttachment> {
+  const fileName = basename(filePath)
+  const extension = extname(filePath).toLowerCase()
+
+  if (extension === '.pdf') {
+    const text = await extractPdfText(filePath)
+    return {
+      name: fileName,
+      content: text.length > 0 ? text : PDF_EMPTY_TEXT_NOTICE
+    }
+  }
+
+  return {
+    name: fileName,
+    content: readFileSync(filePath, 'utf-8')
+  }
+}
 
 // ─── Single Instance Lock ────────────────────────────────────────────────────
 
@@ -197,20 +222,42 @@ function registerIpcHandlers(): void {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Attach Files',
       filters: [
-        { name: 'Text & Markdown', extensions: ['txt', 'md'] }
+        { name: 'Text, Markdown, PDF', extensions: ['txt', 'md', 'pdf'] }
       ],
       properties: ['openFile', 'multiSelections']
     })
 
     if (result.canceled || result.filePaths.length === 0) return []
 
-    return result.filePaths.map((filePath) => {
+    const parsed = await Promise.all(result.filePaths.map(async (filePath) => {
       try {
-        return { name: basename(filePath), content: readFileSync(filePath, 'utf-8') }
+        const attachment = await parseAttachmentFile(filePath)
+        return { ok: true as const, attachment }
       } catch {
-        return null
+        return { ok: false as const, name: basename(filePath) }
       }
-    }).filter(Boolean) as { name: string; content: string }[]
+    }))
+
+    const attachments = parsed
+      .filter((result): result is { ok: true; attachment: ParsedAttachment } => result.ok)
+      .map((result) => result.attachment)
+
+    const failed = parsed
+      .filter((result): result is { ok: false; name: string } => !result.ok)
+      .map((result) => result.name)
+
+    if (failed.length > 0) {
+      await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        buttons: ['OK'],
+        defaultId: 0,
+        title: 'Attachment Parsing Failed',
+        message: 'Some files could not be attached.',
+        detail: failed.join('\n')
+      })
+    }
+
+    return attachments
   })
 }
 
