@@ -93,5 +93,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     }
+  },
+  "optionalDependencies": {
+    "@napi-rs/canvas-win32-x64-msvc": "^0.1.80"
   }
 }
