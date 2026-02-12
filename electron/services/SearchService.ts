@@ -3,7 +3,7 @@ import type { SearchResult, Settings } from '../../src/types'
 
 /**
  * Domain service for web search.
- * Supports Tavily (preferred) and SerpAPI (fallback).
+ * Supports Tavily (preferred) and SerpAPI (fallback), plus direct Wikipedia search.
  * No Electron imports.
  */
 export class SearchService {
@@ -30,6 +30,63 @@ export class SearchService {
     throw new Error(
       'No search API key configured. Add a Tavily or SerpAPI key in Settings.'
     )
+  }
+
+  async searchWikipedia(query: string, numResults: number = 5): Promise<SearchResult[]> {
+    const count = Math.max(1, Math.min(10, numResults))
+    const timeout = 15_000
+
+    const searchResponse = await axios.get('https://en.wikipedia.org/w/api.php', {
+      params: {
+        action: 'query',
+        list: 'search',
+        srsearch: query,
+        srlimit: count,
+        format: 'json',
+        origin: '*'
+      },
+      headers: {
+        'User-Agent': 'RedLedger/1.0'
+      },
+      timeout
+    })
+
+    const searchItems: Array<{ pageid: number; title: string; snippet?: string }> =
+      searchResponse.data?.query?.search || []
+
+    if (searchItems.length === 0) return []
+
+    const pageIds = searchItems.map((item) => item.pageid).join('|')
+
+    const extractResponse = await axios.get('https://en.wikipedia.org/w/api.php', {
+      params: {
+        action: 'query',
+        prop: 'extracts',
+        exintro: true,
+        explaintext: true,
+        pageids: pageIds,
+        format: 'json',
+        origin: '*'
+      },
+      headers: {
+        'User-Agent': 'RedLedger/1.0'
+      },
+      timeout
+    })
+
+    const pages = (extractResponse.data?.query?.pages || {}) as Record<string, { extract?: string }>
+
+    return searchItems.map((item) => {
+      const cleanSnippet = (item.snippet || '').replace(/<[^>]*>/g, '')
+      const extract = pages[String(item.pageid)]?.extract || ''
+      const titleSlug = encodeURIComponent(item.title.replace(/ /g, '_'))
+
+      return {
+        title: item.title || '',
+        url: `https://en.wikipedia.org/wiki/${titleSlug}`,
+        snippet: (extract || cleanSnippet).slice(0, 800)
+      }
+    })
   }
 
   private async searchTavily(

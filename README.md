@@ -12,7 +12,7 @@ Red Ledger runs entirely on your machine. No telemetry, no cloud sync, no accoun
 - **Workspace file access** — Point the app at any folder. The LLM can read, write, append, and list files within it. An optional strict mode requires your approval for every file operation.
 - **File attachments** — Attach `.txt` or `.md` files directly to a message via the paperclip button. Contents are inlined into the request so the LLM can reference them.
 - **Persistent context editing** — Three markdown files (System, User, Organization) are injected into every request as the system prompt. Edit them in-app with a full CodeMirror 6 editor, load content from an external file, and reset to defaults at any time.
-- **Web search** — The LLM can search the web via Tavily or SerpAPI and incorporate results into its responses.
+- **Web + Wikipedia search** — The LLM can search the web via Tavily/SerpAPI and query Wikipedia for encyclopedic context.
 - **Conversation history** — All conversations are stored locally in SQLite. Rename, delete, or pick up where you left off. First messages auto-title the conversation.
 - **Message actions** — Retry any assistant response or copy message content with one click.
 - **Timestamp injection** — Each user message is tagged with an ISO 8601 timestamp so the LLM has accurate real-time context.
@@ -144,7 +144,7 @@ red-ledger/
 │   │   ├── SettingsService.ts         # JSON settings persistence + sanitization
 │   │   ├── WorkspaceService.ts        # Jailed file I/O + strict mode + .gitignore
 │   │   ├── ContextService.ts          # System/User/Org prompt assembly
-│   │   ├── SearchService.ts           # Tavily / SerpAPI web search
+│   │   ├── SearchService.ts           # Tavily / SerpAPI web search + Wikipedia search
 │   │   ├── LlmService.ts             # Multi-round streaming + tool orchestration
 │   │   ├── pathJail.ts                # Pure path traversal/symlink validator
 │   │   ├── gitignore.ts              # Pure .gitignore parser
@@ -167,6 +167,7 @@ red-ledger/
 │           ├── appendFile.ts          # append_file tool
 │           ├── listFiles.ts           # list_files tool
 │           ├── webSearch.ts           # web_search tool
+│           ├── wikiSearch.ts          # wiki_search tool
 │           └── __tests__/
 │               └── registry.test.ts
 ├── src/                               # Renderer process
@@ -310,6 +311,7 @@ The LLM can invoke these tools during a conversation:
 | `append_file` | Append content to a workspace file |
 | `list_files` | List the workspace directory tree |
 | `web_search` | Search the web (Tavily or SerpAPI) |
+| `wiki_search` | Search Wikipedia for article summaries |
 
 Tools self-register via the tool registry. All file tools are routed through the jailed file system. Strict mode shows a native confirmation dialog before each operation. Overwriting an existing file always prompts for confirmation, regardless of strict mode. Tool errors are caught and returned in the result so the LLM can self-correct without crashing the stream.
 

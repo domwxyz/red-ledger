@@ -9,6 +9,7 @@ import './writeFile'
 import './appendFile'
 import './listFiles'
 import './webSearch'
+import './wikiSearch'
 
 /**
  * Execute a tool call from the LLM and return the same ToolCall with
