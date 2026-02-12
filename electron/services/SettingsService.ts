@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs'
 import type { Settings, ProviderName, ProviderSettings } from '../../src/types'
 
 const DEFAULT_SETTINGS: Settings = {
-  activeProvider: 'openai',
+  activeProvider: 'openrouter',
   providers: {
     openai: {
       apiKey: '',
@@ -20,10 +20,10 @@ const DEFAULT_SETTINGS: Settings = {
       models: []
     }
   },
-  defaultModel: 'gpt-4',
+  defaultModel: 'z-ai/glm-5',
   temperatureEnabled: false,
-  temperature: 0.7,
-  maxTokens: 4096,
+  temperature: 1.0,
+  maxTokens: 8192,
   strictMode: false,
   tavilyApiKey: '',
   serpApiKey: '',
