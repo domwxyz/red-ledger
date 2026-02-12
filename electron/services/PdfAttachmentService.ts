@@ -2,6 +2,7 @@ import { readFileSync } from 'fs'
 import { createRequire } from 'module'
 
 const require = createRequire(import.meta.url)
+export const PDF_EMPTY_TEXT_NOTICE = '[No extractable text found in PDF.]'
 
 interface CanvasGeometryModule {
   DOMMatrix: unknown
@@ -84,4 +85,13 @@ export async function extractPdfText(filePath: string): Promise<string> {
       // Ignore cleanup errors.
     })
   }
+}
+
+/**
+ * Extract text from a PDF and normalize empty extraction
+ * to the shared placeholder used by attachment parsing.
+ */
+export async function extractPdfTextWithFallback(filePath: string): Promise<string> {
+  const text = await extractPdfText(filePath)
+  return text.length > 0 ? text : PDF_EMPTY_TEXT_NOTICE
 }

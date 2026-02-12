@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, Menu } from 'electron'
 import { join, basename, extname } from 'path'
 import { readFileSync } from 'fs'
-import { extractPdfText } from './services/PdfAttachmentService'
+import { extractPdfTextWithFallback } from './services/PdfAttachmentService'
 import { resolveSettingsPath, resolveDbPath } from './services/SettingsService'
 import { registerDbHandlers, getConversationService } from './ipc/db'
 import { registerContextHandlers, getContextService } from './ipc/context'
@@ -14,7 +14,6 @@ import { assertObject } from './ipc/validate'
 
 let mainWindow: BrowserWindow | null = null
 let ipcHandlersRegistered = false
-const PDF_EMPTY_TEXT_NOTICE = '[No extractable text found in PDF.]'
 
 interface ParsedAttachment {
   name: string
@@ -26,10 +25,9 @@ async function parseAttachmentFile(filePath: string): Promise<ParsedAttachment> 
   const extension = extname(filePath).toLowerCase()
 
   if (extension === '.pdf') {
-    const text = await extractPdfText(filePath)
     return {
       name: fileName,
-      content: text.length > 0 ? text : PDF_EMPTY_TEXT_NOTICE
+      content: await extractPdfTextWithFallback(filePath)
     }
   }
 

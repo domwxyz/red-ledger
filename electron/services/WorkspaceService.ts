@@ -2,6 +2,7 @@ import { dirname, resolve } from 'path'
 import { existsSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync, lstatSync, mkdirSync } from 'fs'
 import { resolveWorkspacePath, PathJailError } from './pathJail'
 import { loadGitignoreRules, isIgnoredByGitignore, type GitignoreRule } from './gitignore'
+import { extractPdfTextWithFallback } from './PdfAttachmentService'
 import type { FileNode, Settings } from '../../src/types'
 
 // Re-export so IPC handlers can use the error type
@@ -80,6 +81,10 @@ export class WorkspaceService {
 
     if (!existsSync(fullPath)) {
       throw new PathJailError('FILE_NOT_FOUND', `File not found: ${relativePath}`)
+    }
+
+    if (relativePath.toLowerCase().endsWith('.pdf')) {
+      return extractPdfTextWithFallback(fullPath)
     }
 
     return readFileSync(fullPath, 'utf-8')

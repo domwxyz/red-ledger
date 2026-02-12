@@ -14,7 +14,7 @@ registerTool({
     type: 'function',
     function: {
       name: 'read_file',
-      description: 'Read the contents of a file in the user\'s workspace directory.',
+      description: 'Read the contents of a file in the user\'s workspace directory. For PDF files, returns extracted text content.',
       parameters: {
         type: 'object',
         properties: {
