@@ -13,6 +13,7 @@ Red Ledger runs entirely on your machine. No telemetry, no cloud sync, no accoun
 - **File attachments** — Attach `.txt` or `.md` files directly to a message via the paperclip button. Contents are inlined into the request so the LLM can reference them.
 - **Persistent context editing** — Three markdown files (System, User, Organization) are injected into every request as the system prompt. Edit them in-app with a full CodeMirror 6 editor, load content from an external file, and reset to defaults at any time.
 - **Web + Wikipedia search** — The LLM can search the web via Tavily/SerpAPI and query Wikipedia for encyclopedic context.
+- **Full webpage fetch** — The LLM can fetch a specific URL and parse the page into readable text for deeper follow-up research.
 - **Conversation history** — All conversations are stored locally in SQLite. Rename, delete, or pick up where you left off. First messages auto-title the conversation.
 - **Message actions** — Retry any assistant response or copy message content with one click.
 - **Timestamp injection** — Each user message is tagged with an ISO 8601 timestamp so the LLM has accurate real-time context.
@@ -168,6 +169,7 @@ red-ledger/
 │           ├── listFiles.ts           # list_files tool
 │           ├── webSearch.ts           # web_search tool
 │           ├── wikiSearch.ts          # wiki_search tool
+│           ├── fetchUrl.ts            # fetch_url tool
 │           └── __tests__/
 │               └── registry.test.ts
 ├── src/                               # Renderer process
@@ -312,6 +314,7 @@ The LLM can invoke these tools during a conversation:
 | `list_files` | List the workspace directory tree |
 | `web_search` | Search the web (Tavily or SerpAPI) |
 | `wiki_search` | Search Wikipedia for article summaries |
+| `fetch_url` | Fetch and parse a full webpage by URL |
 
 Tools self-register via the tool registry. All file tools are routed through the jailed file system. Strict mode shows a native confirmation dialog before each operation. Overwriting an existing file always prompts for confirmation, regardless of strict mode. Tool errors are caught and returned in the result so the LLM can self-correct without crashing the stream.
 

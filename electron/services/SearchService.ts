@@ -89,6 +89,100 @@ export class SearchService {
     })
   }
 
+  async fetchUrl(url: string, maxChars: number = 20_000): Promise<{
+    url: string
+    title: string
+    content: string
+    truncated: boolean
+    contentType: string
+  }> {
+    let parsedUrl: URL
+    try {
+      parsedUrl = new URL(url)
+    } catch {
+      throw new Error('Invalid URL')
+    }
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      throw new Error('Only http:// and https:// URLs are supported')
+    }
+
+    const boundedMaxChars = Math.max(1_000, Math.min(100_000, maxChars))
+
+    const response = await axios.get<string>(parsedUrl.toString(), {
+      responseType: 'text',
+      timeout: 20_000,
+      maxContentLength: 5_000_000,
+      maxBodyLength: 5_000_000,
+      headers: {
+        'User-Agent': 'RedLedger/1.0'
+      }
+    })
+
+    const contentTypeHeader = String(response.headers?.['content-type'] || '')
+    const contentType = contentTypeHeader.split(';')[0]?.trim().toLowerCase() || 'unknown'
+
+    if (!contentType.includes('text/html') && !contentType.startsWith('text/')) {
+      throw new Error(`Unsupported content type: ${contentType || 'unknown'}`)
+    }
+
+    const raw = String(response.data || '')
+    const title = this.extractTitle(raw)
+
+    const text = contentType.includes('text/html')
+      ? this.extractHtmlText(raw)
+      : raw.trim()
+
+    const truncated = text.length > boundedMaxChars
+    return {
+      url: parsedUrl.toString(),
+      title,
+      content: truncated ? text.slice(0, boundedMaxChars) : text,
+      truncated,
+      contentType
+    }
+  }
+
+  private extractTitle(html: string): string {
+    const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+    return this.decodeHtmlEntities((m?.[1] || '').trim())
+  }
+
+  private extractHtmlText(html: string): string {
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+    const body = bodyMatch?.[1] || html
+
+    const withoutBlocked = body
+      .replace(/<(script|style|noscript|svg|iframe)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|li|h1|h2|h3|h4|h5|h6|tr|section|article|blockquote)>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+
+    const decoded = this.decodeHtmlEntities(withoutBlocked)
+
+    return decoded
+      .replace(/\r\n/g, '\n')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]{2,}/g, ' ')
+      .trim()
+  }
+
+  private decodeHtmlEntities(input: string): string {
+    const named = input
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&apos;/gi, "'")
+
+    return named
+      .replace(/&#(\d+);/g, (_m, dec) => String.fromCodePoint(Number(dec)))
+      .replace(/&#x([0-9a-f]+);/gi, (_m, hex) => String.fromCodePoint(parseInt(hex, 16)))
+  }
+
   private async searchTavily(
     query: string,
     numResults: number,

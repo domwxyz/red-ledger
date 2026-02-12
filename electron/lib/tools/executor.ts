@@ -10,6 +10,7 @@ import './appendFile'
 import './listFiles'
 import './webSearch'
 import './wikiSearch'
+import './fetchUrl'
 
 /**
  * Execute a tool call from the LLM and return the same ToolCall with
