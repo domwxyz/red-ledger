@@ -103,8 +103,8 @@ export function ContextEditor({ type, title, description }: ContextEditorProps) 
       {/* Header */}
       <div className="editor-header shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-medium text-soft-charcoal">{title}</span>
-          <span className="text-[11px] text-soft-charcoal/35 hidden sm:inline truncate">{description}</span>
+          <span className="font-medium text-soft-charcoal whitespace-nowrap shrink-0">{title}</span>
+          <span className="text-[11px] text-soft-charcoal/35 hidden sm:block min-w-0 flex-1 truncate">{description}</span>
           {isDirty && (
             <span className="text-[11px] text-warning shrink-0">&#x2022; Unsaved</span>
           )}
