@@ -1,6 +1,12 @@
 import axios from 'axios'
 import type { SearchResult, Settings } from '../../src/types'
 
+interface ExtractedLink {
+  text: string
+  url: string
+  isInternal: boolean
+}
+
 /**
  * Domain service for web search.
  * Supports Tavily (preferred) and SerpAPI (fallback), plus direct Wikipedia search.
@@ -93,6 +99,7 @@ export class SearchService {
     url: string
     title: string
     content: string
+    links: ExtractedLink[]
     truncated: boolean
     contentType: string
   }> {
@@ -128,9 +135,12 @@ export class SearchService {
 
     const raw = String(response.data || '')
     const title = this.extractTitle(raw)
+    const links = contentType.includes('text/html')
+      ? this.extractLinksFromHtml(raw, parsedUrl.toString())
+      : []
 
     const text = contentType.includes('text/html')
-      ? this.extractHtmlText(raw)
+      ? this.extractHtmlText(raw, parsedUrl.toString())
       : raw.trim()
 
     const truncated = text.length > boundedMaxChars
@@ -138,6 +148,7 @@ export class SearchService {
       url: parsedUrl.toString(),
       title,
       content: truncated ? text.slice(0, boundedMaxChars) : text,
+      links,
       truncated,
       contentType
     }
@@ -148,11 +159,13 @@ export class SearchService {
     return this.decodeHtmlEntities((m?.[1] || '').trim())
   }
 
-  private extractHtmlText(html: string): string {
+  private extractHtmlText(html: string, baseUrl: string): string {
     const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
     const body = bodyMatch?.[1] || html
 
-    const withoutBlocked = body
+    const withInlineLinks = this.inlineAnchorUrls(body, baseUrl)
+
+    const withoutBlocked = withInlineLinks
       .replace(/<(script|style|noscript|svg|iframe)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/(p|div|li|h1|h2|h3|h4|h5|h6|tr|section|article|blockquote)>/gi, '\n')
@@ -165,6 +178,74 @@ export class SearchService {
       .replace(/[ \t]+\n/g, '\n')
       .replace(/\n{3,}/g, '\n\n')
       .replace(/[ \t]{2,}/g, ' ')
+      .trim()
+  }
+
+  private inlineAnchorUrls(html: string, baseUrl: string): string {
+    const anchorRegex =
+      /<a\b[^>]*href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+))[^>]*>([\s\S]*?)<\/a>/gi
+
+    return html.replace(anchorRegex, (_match, doubleQuoted, singleQuoted, bare, innerHtml) => {
+      const href = String(doubleQuoted || singleQuoted || bare || '').trim()
+      const resolved = this.resolveFetchableUrl(href, baseUrl)
+      if (!resolved) return String(innerHtml || '')
+      const text = String(innerHtml || '')
+      return text.trim() ? `${text} (${resolved})` : resolved
+    })
+  }
+
+  private extractLinksFromHtml(html: string, baseUrl: string): ExtractedLink[] {
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+    const body = bodyMatch?.[1] || html
+    const origin = new URL(baseUrl).origin
+    const seen = new Set<string>()
+    const links: ExtractedLink[] = []
+    const maxLinks = 200
+
+    const anchorRegex =
+      /<a\b[^>]*href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+))[^>]*>([\s\S]*?)<\/a>/gi
+
+    body.replace(anchorRegex, (_match, doubleQuoted, singleQuoted, bare, innerHtml) => {
+      if (links.length >= maxLinks) return _match
+
+      const href = String(doubleQuoted || singleQuoted || bare || '').trim()
+      const resolved = this.resolveFetchableUrl(href, baseUrl)
+      if (!resolved || seen.has(resolved)) return _match
+
+      const text = this.extractAnchorText(String(innerHtml || ''))
+      seen.add(resolved)
+      links.push({
+        text: text || resolved,
+        url: resolved,
+        isInternal: resolved.startsWith(origin + '/') || resolved === origin
+      })
+
+      return _match
+    })
+
+    return links
+  }
+
+  private resolveFetchableUrl(href: string, baseUrl: string): string | null {
+    if (!href) return null
+
+    const decodedHref = this.decodeHtmlEntities(href).trim()
+    if (!decodedHref || decodedHref.startsWith('#')) return null
+
+    try {
+      const absolute = new URL(decodedHref, baseUrl)
+      if (!['http:', 'https:'].includes(absolute.protocol)) return null
+      absolute.hash = ''
+      return absolute.toString()
+    } catch {
+      return null
+    }
+  }
+
+  private extractAnchorText(innerHtml: string): string {
+    const withoutTags = innerHtml.replace(/<[^>]+>/g, ' ')
+    return this.decodeHtmlEntities(withoutTags)
+      .replace(/\s+/g, ' ')
       .trim()
   }
 

@@ -7,7 +7,7 @@ registerTool({
     type: 'function',
     function: {
       name: 'fetch_url',
-      description: 'Fetch and parse a webpage from a URL, returning readable full-page text content.',
+      description: 'Fetch and parse a webpage from a URL, returning readable full-page text content plus a structured links array for follow-up navigation.',
       parameters: {
         type: 'object',
         properties: {

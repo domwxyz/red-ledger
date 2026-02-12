@@ -314,7 +314,7 @@ The LLM can invoke these tools during a conversation:
 | `list_files` | List the workspace directory tree |
 | `web_search` | Search the web (Tavily or SerpAPI) |
 | `wiki_search` | Search Wikipedia for article summaries |
-| `fetch_url` | Fetch and parse a full webpage by URL |
+| `fetch_url` | Fetch and parse a full webpage by URL (includes extracted `links` for navigation) |
 
 Tools self-register via the tool registry. All file tools are routed through the jailed file system. Strict mode shows a native confirmation dialog before each operation. Overwriting an existing file always prompts for confirmation, regardless of strict mode. Tool errors are caught and returned in the result so the LLM can self-correct without crashing the stream.
 
