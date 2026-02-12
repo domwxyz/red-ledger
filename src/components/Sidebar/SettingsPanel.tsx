@@ -10,7 +10,12 @@ const PROVIDERS: { id: ProviderName; label: string }[] = [
 ]
 
 const PROVIDERS_USING_FIRST_LIST_MODEL = new Set<ProviderName>(['ollama', 'lmstudio'])
-const PROVIDERS_ALLOW_BLANK_MODEL = new Set<ProviderName>(['openai', 'openrouter'])
+const PROVIDERS_ALLOW_BLANK_MODEL = new Set<ProviderName>([
+  'openai',
+  'openrouter',
+  'ollama',
+  'lmstudio'
+])
 
 const PROVIDER_PREFERRED_MODELS: Partial<Record<ProviderName, string>> = {
   openai: 'z-ai/glm-5',
