@@ -75,15 +75,18 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry }: Messa
       ref={scrollContainerRef}
       className="h-full overflow-y-auto px-4 py-4 space-y-4"
     >
-      {messages.map((message, idx) => (
-        <MessageBubble
-          key={message.id}
-          message={message}
-          isStreaming={message.id.startsWith('streaming-')}
-          isReceivingThinking={isReceivingThinking && message.id.startsWith('streaming-')}
-          onRetry={canRetry && idx === lastUserIdx ? onRetry : undefined}
-        />
-      ))}
+      {messages.map((message, idx) => {
+        const messageIsStreaming = isStreaming && message.id.startsWith('streaming-')
+        return (
+          <MessageBubble
+            key={message.id}
+            message={message}
+            isStreaming={messageIsStreaming}
+            isReceivingThinking={isReceivingThinking && messageIsStreaming}
+            onRetry={canRetry && idx === lastUserIdx ? onRetry : undefined}
+          />
+        )
+      })}
       <div ref={bottomRef} />
     </div>
   )

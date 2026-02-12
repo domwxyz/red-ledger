@@ -11,8 +11,8 @@ const THINKING_ACTIVE_WINDOW_MS = 1500
  * React hook that manages the LLM streaming lifecycle.
  *
  * Flow: user sends message -> save to DB -> create temp assistant message ->
- * stream chunks into temp message -> on done, persist to DB and atomically
- * replace temp message with the saved version (no flash/gap).
+ * stream chunks into temp message -> on done/cancel, persist to DB and
+ * atomically replace temp message with the saved version (no flash/gap).
  *
  * Streaming content updates are throttled to avoid excessive re-renders.
  */
@@ -22,6 +22,7 @@ export function useStreaming() {
 
   const cleanupRef = useRef<(() => void) | null>(null)
   const tempMessageIdRef = useRef<string | null>(null)
+  const tempConversationIdRef = useRef<string | null>(null)
   const contentRef = useRef('')
   const thinkingRef = useRef('')
   const toolCallsRef = useRef<ToolCall[]>([])
@@ -47,7 +48,66 @@ export function useStreaming() {
     }, THINKING_ACTIVE_WINDOW_MS)
   }, [])
 
+  const finalizeTempMessage = useCallback((tempId: string, conversationId: string) => {
+    const finalContent = contentRef.current
+    const finalThinking = thinkingRef.current
+    const finalToolCalls = toolCallsRef.current
+    const hasAnyOutput = Boolean(finalContent || finalThinking || finalToolCalls.length > 0)
+
+    const clearTempRefsIfCurrent = () => {
+      if (tempMessageIdRef.current === tempId) {
+        tempMessageIdRef.current = null
+      }
+      if (tempConversationIdRef.current === conversationId) {
+        tempConversationIdRef.current = null
+      }
+    }
+
+    if (!hasAnyOutput) {
+      useConversationStore.setState((state) => ({
+        messages: state.messages.filter((m) => m.id !== tempId)
+      }))
+      clearTempRefsIfCurrent()
+      return
+    }
+
+    // Ensure the latest buffered state is visible before persistence swap.
+    useConversationStore.getState().updateMessage(tempId, {
+      content: finalContent,
+      thinking: finalThinking || undefined,
+      toolCalls: finalToolCalls.length > 0
+        ? JSON.stringify(finalToolCalls)
+        : undefined
+    })
+
+    window.redLedger.createMessage({
+      conversationId,
+      role: 'assistant',
+      content: finalContent || '_(No text response)_',
+      thinking: finalThinking || undefined,
+      toolCalls: finalToolCalls.length > 0
+        ? JSON.stringify(finalToolCalls)
+        : undefined
+    }).then((savedMsg) => {
+      // Atomic swap: replace temp with persisted message (no flash)
+      useConversationStore.setState((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === tempId ? savedMsg : m
+        )
+      }))
+      clearTempRefsIfCurrent()
+    }).catch((err) => {
+      notify({
+        type: 'error',
+        message: formatError(err)
+      })
+    })
+  }, [])
+
   const cancel = useCallback(() => {
+    const tempId = tempMessageIdRef.current
+    const tempConversationId = tempConversationIdRef.current
+
     if (cleanupRef.current) {
       cleanupRef.current()
       cleanupRef.current = null
@@ -56,19 +116,23 @@ export function useStreaming() {
       clearTimeout(throttleRef.current)
       throttleRef.current = null
     }
-    if (tempMessageIdRef.current) {
-      const tempId = tempMessageIdRef.current
+
+    if (tempId && tempConversationId) {
+      finalizeTempMessage(tempId, tempConversationId)
+    } else if (tempId) {
       useConversationStore.setState((state) => ({
         messages: state.messages.filter((m) => m.id !== tempId)
       }))
       tempMessageIdRef.current = null
+      tempConversationIdRef.current = null
     }
+
     setIsStreaming(false)
     clearThinkingActivity()
     contentRef.current = ''
     thinkingRef.current = ''
     toolCallsRef.current = []
-  }, [clearThinkingActivity])
+  }, [clearThinkingActivity, finalizeTempMessage])
 
   const sendMessage = useCallback(async (content: string, attachments?: Attachment[]) => {
     const store = useConversationStore.getState()
@@ -126,6 +190,7 @@ export function useStreaming() {
         createdAt: Date.now()
       }
       tempMessageIdRef.current = tempId
+      tempConversationIdRef.current = conversationId
       useConversationStore.setState((state) => ({
         messages: [...state.messages, tempMessage]
       }))
@@ -206,41 +271,7 @@ export function useStreaming() {
               throttleRef.current = null
             }
 
-            const finalContent = contentRef.current
-            const finalThinking = thinkingRef.current
-            const finalToolCalls = toolCallsRef.current
-
-            if (finalContent || finalThinking || finalToolCalls.length > 0) {
-              // Persist to DB, then atomically replace the temp message
-              window.redLedger.createMessage({
-                conversationId,
-                role: 'assistant',
-                content: finalContent || '_(No text response)_',
-                thinking: finalThinking || undefined,
-                toolCalls: finalToolCalls.length > 0
-                  ? JSON.stringify(finalToolCalls)
-                  : undefined
-              }).then((savedMsg) => {
-                // Atomic swap: replace temp with persisted message (no flash)
-                useConversationStore.setState((state) => ({
-                  messages: state.messages.map((m) =>
-                    m.id === tempId ? savedMsg : m
-                  )
-                }))
-                tempMessageIdRef.current = null
-              }).catch((err) => {
-                notify({
-                  type: 'error',
-                  message: formatError(err)
-                })
-              })
-            } else {
-              // Nothing to save — remove the empty temp message
-              useConversationStore.setState((state) => ({
-                messages: state.messages.filter((m) => m.id !== tempId)
-              }))
-              tempMessageIdRef.current = null
-            }
+            finalizeTempMessage(tempId, conversationId)
 
             setIsStreaming(false)
             contentRef.current = ''
@@ -261,6 +292,7 @@ export function useStreaming() {
           messages: state.messages.filter((m) => m.id !== tempId)
         }))
         tempMessageIdRef.current = null
+        tempConversationIdRef.current = null
       }
       setIsStreaming(false)
       clearThinkingActivity()
@@ -269,7 +301,7 @@ export function useStreaming() {
         message: formatError(err)
       })
     }
-  }, [clearThinkingActivity, markThinkingActivity])
+  }, [clearThinkingActivity, finalizeTempMessage, markThinkingActivity])
 
   const retry = useCallback(async () => {
     if (isStreaming) return
