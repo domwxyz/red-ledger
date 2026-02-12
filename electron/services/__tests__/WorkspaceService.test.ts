@@ -10,7 +10,8 @@ const BASE_SETTINGS: Settings = {
   providers: {
     openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1', models: [] },
     openrouter: { apiKey: '', baseUrl: 'https://openrouter.ai/api/v1', models: [] },
-    ollama: { apiKey: '', baseUrl: 'http://localhost:11434', models: [] }
+    ollama: { apiKey: '', baseUrl: 'http://localhost:11434', models: [] },
+    lmstudio: { apiKey: '', baseUrl: 'http://localhost:1234', models: [], compatibility: 'openai' }
   },
   defaultModel: 'gpt-4',
   temperatureEnabled: false,

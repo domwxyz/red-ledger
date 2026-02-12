@@ -5,21 +5,25 @@ import { sanitizeSettings } from '../SettingsService'
 describe('sanitizeSettings', () => {
   it('returns defaults for undefined input', () => {
     const result = sanitizeSettings(undefined)
-    expect(result.activeProvider).toBe('openai')
+    expect(result.activeProvider).toBe('openrouter')
     expect(result.temperatureEnabled).toBe(false)
-    expect(result.temperature).toBe(0.7)
-    expect(result.maxTokens).toBe(4096)
+    expect(result.temperature).toBe(1.0)
+    expect(result.maxTokens).toBe(8192)
     expect(result.strictMode).toBe(false)
-    expect(result.defaultModel).toBe('gpt-4')
+    expect(result.defaultModel).toBe('z-ai/glm-5')
+    expect(result.providers.openrouter.selectedModel).toBe('z-ai/glm-5')
   })
 
   it('returns defaults for empty object', () => {
     const result = sanitizeSettings({})
-    expect(result.activeProvider).toBe('openai')
+    expect(result.activeProvider).toBe('openrouter')
     expect(result.temperatureEnabled).toBe(false)
     expect(result.providers.openai.baseUrl).toBe('https://api.openai.com/v1')
     expect(result.providers.openrouter.baseUrl).toBe('https://openrouter.ai/api/v1')
     expect(result.providers.ollama.baseUrl).toBe('http://localhost:11434')
+    expect(result.providers.lmstudio.baseUrl).toBe('http://localhost:1234')
+    expect(result.providers.lmstudio.compatibility).toBe('openai')
+    expect(result.providers.openrouter.selectedModel).toBe('z-ai/glm-5')
   })
 
   it('preserves valid temperatureEnabled value', () => {
@@ -53,15 +57,15 @@ describe('sanitizeSettings', () => {
   })
 
   it('rejects NaN temperature', () => {
-    expect(sanitizeSettings({ temperature: NaN } as any).temperature).toBe(0.7)
+    expect(sanitizeSettings({ temperature: NaN } as any).temperature).toBe(1.0)
   })
 
   it('rejects NaN maxTokens', () => {
-    expect(sanitizeSettings({ maxTokens: NaN } as any).maxTokens).toBe(4096)
+    expect(sanitizeSettings({ maxTokens: NaN } as any).maxTokens).toBe(8192)
   })
 
   it('rejects invalid activeProvider', () => {
-    expect(sanitizeSettings({ activeProvider: 'invalid' } as any).activeProvider).toBe('openai')
+    expect(sanitizeSettings({ activeProvider: 'invalid' } as any).activeProvider).toBe('openrouter')
   })
 
   it('preserves valid provider settings', () => {
@@ -94,10 +98,48 @@ describe('sanitizeSettings', () => {
       providers: {
         openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1', models: ['gpt-4', 42, null, 'gpt-3.5'] },
         openrouter: { apiKey: '', baseUrl: '', models: [] },
-        ollama: { apiKey: '', baseUrl: '', models: [] }
+        ollama: { apiKey: '', baseUrl: '', models: [] },
+        lmstudio: { apiKey: '', baseUrl: '', models: [] }
       }
     } as any)
     expect(result.providers.openai.models).toEqual(['gpt-4', 'gpt-3.5'])
+  })
+
+  it('sanitizes lmstudio compatibility', () => {
+    const valid = sanitizeSettings({
+      providers: {
+        lmstudio: { apiKey: '', baseUrl: 'http://localhost:1234', models: [], compatibility: 'lmstudio' }
+      }
+    } as any)
+    expect(valid.providers.lmstudio.compatibility).toBe('lmstudio')
+
+    const invalid = sanitizeSettings({
+      providers: {
+        lmstudio: { apiKey: '', baseUrl: 'http://localhost:1234', models: [], compatibility: 'invalid' }
+      }
+    } as any)
+    expect(invalid.providers.lmstudio.compatibility).toBe('openai')
+  })
+
+  it('migrates legacy defaultModel into active provider selectedModel', () => {
+    const result = sanitizeSettings({
+      activeProvider: 'openai',
+      defaultModel: 'gpt-4o-mini'
+    } as any)
+
+    expect(result.providers.openai.selectedModel).toBe('gpt-4o-mini')
+  })
+
+  it('preserves intentionally blank selectedModel values', () => {
+    const result = sanitizeSettings({
+      providers: {
+        openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1', models: [], selectedModel: '' },
+        openrouter: { apiKey: '', baseUrl: 'https://openrouter.ai/api/v1', models: [], selectedModel: '' }
+      }
+    } as any)
+
+    expect(result.providers.openai.selectedModel).toBe('')
+    expect(result.providers.openrouter.selectedModel).toBe('')
   })
 
   it('preserves lastWorkspacePath when string', () => {

@@ -38,5 +38,5 @@ registerProvider({
   name: 'openrouter',
   displayName: 'OpenRouter',
   defaultBaseUrl: 'https://openrouter.ai/api/v1',
-  factory: (apiKey, baseUrl) => new OpenRouterProvider(apiKey, baseUrl)
+  factory: (settings) => new OpenRouterProvider(settings.apiKey, settings.baseUrl)
 })

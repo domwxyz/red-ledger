@@ -30,7 +30,7 @@ export class ConversationService {
         title TEXT NOT NULL DEFAULT 'New Chat',
         model TEXT NOT NULL DEFAULT 'gpt-4',
         provider TEXT NOT NULL DEFAULT 'openai'
-          CHECK(provider IN ('openai', 'openrouter', 'ollama')),
+          CHECK(provider IN ('openai', 'openrouter', 'ollama', 'lmstudio')),
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         workspace_path TEXT

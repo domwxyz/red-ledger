@@ -130,6 +130,11 @@ export class OpenAIProvider extends BaseLLMProvider {
     super(apiKey, baseUrl)
   }
 
+  protected getAuthHeaders(): Record<string, string> {
+    const apiKey = this.apiKey.trim()
+    return apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}
+  }
+
   sendStreaming(options: ProviderSendOptions): AbortHandle {
     const controller = new AbortController()
 
@@ -196,7 +201,7 @@ export class OpenAIProvider extends BaseLLMProvider {
         response = await axios.post(`${this.baseUrl}/chat/completions`, body, {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
+            ...this.getAuthHeaders()
           },
           responseType: 'stream',
           timeout: 120_000,
@@ -357,15 +362,12 @@ export class OpenAIProvider extends BaseLLMProvider {
   async listModels(): Promise<string[]> {
     try {
       const response = await axios.get(`${this.baseUrl}/models`, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`
-        },
+        headers: this.getAuthHeaders(),
         timeout: 15_000
       })
 
       const models: string[] = (response.data?.data || [])
         .map((m: { id: string }) => m.id)
-        .filter((id: string) => id.startsWith('gpt-'))
         .sort()
 
       return models
@@ -380,5 +382,5 @@ registerProvider({
   name: 'openai',
   displayName: 'OpenAI',
   defaultBaseUrl: 'https://api.openai.com/v1',
-  factory: (apiKey, baseUrl) => new OpenAIProvider(apiKey, baseUrl)
+  factory: (settings) => new OpenAIProvider(settings.apiKey, settings.baseUrl)
 })

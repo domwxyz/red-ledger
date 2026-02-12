@@ -1,5 +1,10 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import type { Settings, ProviderName, ProviderSettings } from '../../src/types'
+import type {
+  Settings,
+  ProviderName,
+  ProviderSettings,
+  LMStudioCompatibility
+} from '../../src/types'
 
 const DEFAULT_SETTINGS: Settings = {
   activeProvider: 'openrouter',
@@ -12,12 +17,19 @@ const DEFAULT_SETTINGS: Settings = {
     openrouter: {
       apiKey: '',
       baseUrl: 'https://openrouter.ai/api/v1',
-      models: []
+      models: [],
+      selectedModel: 'z-ai/glm-5'
     },
     ollama: {
       apiKey: '',
       baseUrl: 'http://localhost:11434',
       models: []
+    },
+    lmstudio: {
+      apiKey: '',
+      baseUrl: 'http://localhost:1234',
+      models: [],
+      compatibility: 'openai'
     }
   },
   defaultModel: 'z-ai/glm-5',
@@ -30,8 +42,20 @@ const DEFAULT_SETTINGS: Settings = {
   lastWorkspacePath: null
 }
 
-const PROVIDER_NAMES: ProviderName[] = ['openai', 'openrouter', 'ollama']
+const PROVIDER_NAMES: ProviderName[] = ['openai', 'openrouter', 'ollama', 'lmstudio']
 const VALID_PROVIDERS = new Set<ProviderName>(PROVIDER_NAMES)
+
+const LMSTUDIO_COMPATIBILITY = new Set<LMStudioCompatibility>(['openai', 'lmstudio'])
+
+function sanitizeCompatibility(
+  value: unknown,
+  fallback?: LMStudioCompatibility
+): LMStudioCompatibility | undefined {
+  if (typeof value === 'string' && LMSTUDIO_COMPATIBILITY.has(value as LMStudioCompatibility)) {
+    return value as LMStudioCompatibility
+  }
+  return fallback
+}
 
 /**
  * Domain service for application settings.
@@ -95,7 +119,11 @@ function sanitizeProviderSettings(value: unknown, defaults: ProviderSettings): P
     baseUrl: typeof raw.baseUrl === 'string' && raw.baseUrl.trim().length > 0
       ? raw.baseUrl
       : defaults.baseUrl,
-    models
+    models,
+    compatibility: sanitizeCompatibility(raw.compatibility, defaults.compatibility),
+    selectedModel: typeof raw.selectedModel === 'string'
+      ? raw.selectedModel
+      : defaults.selectedModel
   }
 }
 
@@ -117,6 +145,17 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
   const defaultModel = typeof s.defaultModel === 'string' && s.defaultModel.trim().length > 0
     ? s.defaultModel
     : DEFAULT_SETTINGS.defaultModel
+
+  const activeRawSelectedModel = typeof s.providers?.[activeProvider]?.selectedModel === 'string'
+
+  // Backward compatibility: migrate legacy global defaultModel into the
+  // active provider's selectedModel when no explicit per-provider value exists.
+  if (!activeRawSelectedModel) {
+    providers[activeProvider] = {
+      ...providers[activeProvider],
+      selectedModel: defaultModel
+    }
+  }
 
   // Clamp temperature: 0–2
   const temperature = typeof s.temperature === 'number' && !isNaN(s.temperature)

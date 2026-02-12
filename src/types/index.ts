@@ -1,11 +1,14 @@
 // ─── Provider Types ──────────────────────────────────────────────────────────
 
-export type ProviderName = 'openai' | 'openrouter' | 'ollama'
+export type ProviderName = 'openai' | 'openrouter' | 'ollama' | 'lmstudio'
+export type LMStudioCompatibility = 'openai' | 'lmstudio'
 
 export interface ProviderSettings {
   apiKey: string
   baseUrl: string
   models: string[]
+  compatibility?: LMStudioCompatibility
+  selectedModel?: string
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────

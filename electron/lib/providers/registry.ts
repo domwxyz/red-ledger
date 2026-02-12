@@ -1,5 +1,5 @@
 import type { BaseLLMProvider } from './base'
-import type { ProviderName } from '../../../src/types'
+import type { ProviderName, ProviderSettings } from '../../../src/types'
 
 /**
  * Provider registry — maps provider names to factory functions.
@@ -11,7 +11,7 @@ interface ProviderEntry {
   name: ProviderName
   displayName: string
   defaultBaseUrl: string
-  factory: (apiKey: string, baseUrl: string) => BaseLLMProvider
+  factory: (settings: ProviderSettings) => BaseLLMProvider
 }
 
 const providers = new Map<ProviderName, ProviderEntry>()
@@ -20,10 +20,10 @@ export function registerProvider(entry: ProviderEntry): void {
   providers.set(entry.name, entry)
 }
 
-export function createProvider(name: ProviderName, apiKey: string, baseUrl: string): BaseLLMProvider {
+export function createProvider(name: ProviderName, settings: ProviderSettings): BaseLLMProvider {
   const entry = providers.get(name)
   if (!entry) throw new Error(`Unknown provider: ${name}`)
-  return entry.factory(apiKey, baseUrl)
+  return entry.factory(settings)
 }
 
 export function listProviders(): ProviderEntry[] {

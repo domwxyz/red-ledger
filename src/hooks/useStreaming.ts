@@ -170,10 +170,15 @@ export function useStreaming() {
         timestamp: m.timestamp
       }))
 
+      const activeProviderConfig = currentSettings.providers[currentSettings.activeProvider]
+      const resolvedModel = activeProviderConfig.selectedModel !== undefined
+        ? activeProviderConfig.selectedModel
+        : currentSettings.defaultModel
+
       const request: LLMRequest = {
         conversationId,
         messages,
-        model: currentSettings.defaultModel,
+        model: resolvedModel,
         provider: currentSettings.activeProvider,
         ...(currentSettings.temperatureEnabled ? { temperature: currentSettings.temperature } : {}),
         maxTokens: currentSettings.maxTokens

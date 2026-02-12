@@ -170,5 +170,5 @@ registerProvider({
   name: 'ollama',
   displayName: 'Ollama',
   defaultBaseUrl: 'http://localhost:11434',
-  factory: (apiKey, baseUrl) => new OllamaProvider(apiKey, baseUrl)
+  factory: (settings) => new OllamaProvider(settings.apiKey, settings.baseUrl)
 })

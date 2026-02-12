@@ -7,6 +7,7 @@ import type { LLMRequest, StreamChunk, ToolCall, ProviderName, Settings } from '
 import '../lib/providers/openai'
 import '../lib/providers/openrouter'
 import '../lib/providers/ollama'
+import '../lib/providers/lmstudio'
 
 const MAX_TOOL_ROUNDS = 10
 
@@ -194,6 +195,6 @@ export class LlmService {
   private createProvider(providerName: ProviderName) {
     const settings = this.getSettings()
     const config = settings.providers[providerName]
-    return createProvider(providerName, config.apiKey, config.baseUrl)
+    return createProvider(providerName, config)
   }
 }
