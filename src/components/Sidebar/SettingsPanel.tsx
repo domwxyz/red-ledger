@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSettingsStore } from '@/store'
 import type { ProviderName } from '@/types'
 
@@ -62,6 +62,8 @@ export function SettingsPanel() {
   const [models, setModels] = useState<string[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsFetchFailed, setModelsFetchFailed] = useState(false)
+  const [modelsRefreshNonce, setModelsRefreshNonce] = useState(0)
+  const lastSyncedModelFetchKeyRef = useRef('')
   const activeProviderConfig = settings
     ? settings.providers[settings.activeProvider]
     : null
@@ -74,19 +76,26 @@ export function SettingsPanel() {
       ? activeProviderConfig.selectedModel
       : (activeProviderName ? (PROVIDER_PREFERRED_MODELS[activeProviderName] || '') : ''))
     : ''
+  const refreshModels = () => setModelsRefreshNonce((n) => n + 1)
 
   // Fetch models when provider identity/config changes.
   useEffect(() => {
     if (!settings || !window.redLedger) return
     let cancelled = false
+    const didConfigChange = lastSyncedModelFetchKeyRef.current !== modelFetchKey
+    lastSyncedModelFetchKeyRef.current = modelFetchKey
 
     setModels([])
     setModelsFetchFailed(false)
     setModelsLoading(true)
 
     const timer = setTimeout(() => {
-      window.redLedger
-        .listModels(settings.activeProvider)
+      ;(async () => {
+        if (didConfigChange) {
+          await window.redLedger.saveSettings(settings)
+        }
+        return window.redLedger.listModels(settings.activeProvider)
+      })()
         .then((list) => {
           if (cancelled) return
           setModels(list)
@@ -106,7 +115,7 @@ export function SettingsPanel() {
       clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelFetchKey, settings?.activeProvider])
+  }, [modelFetchKey, settings?.activeProvider, modelsRefreshNonce])
 
   // Keep the active provider's selected model sane relative to the latest list.
   useEffect(() => {
@@ -281,7 +290,8 @@ export function SettingsPanel() {
           </label>
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
+              refreshModels()
               saveSettings({
                 ...settings,
                 providers: {
@@ -292,7 +302,7 @@ export function SettingsPanel() {
                   }
                 }
               })
-            }
+            }}
             className="btn btn-ghost btn-xs h-6 min-h-0 px-2 text-[10px] uppercase tracking-wide"
           >
             Reset
@@ -319,9 +329,19 @@ export function SettingsPanel() {
 
       {/* Default Model */}
       <div>
-        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
-          Model
-        </label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
+            Model
+          </label>
+          <button
+            type="button"
+            onClick={refreshModels}
+            disabled={modelsLoading}
+            className="btn btn-ghost btn-xs h-6 min-h-0 px-2 text-[10px] uppercase tracking-wide"
+          >
+            Refresh
+          </button>
+        </div>
         {modelsLoading ? (
           <div className="flex items-center gap-2 h-8">
             <span className="loading loading-spinner loading-xs text-rca-red" />
