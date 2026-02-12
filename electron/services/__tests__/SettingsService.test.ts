@@ -142,6 +142,24 @@ describe('sanitizeSettings', () => {
     expect(result.providers.openrouter.selectedModel).toBe('')
   })
 
+  it('migrates legacy jamba models to glm-5', () => {
+    const result = sanitizeSettings({
+      activeProvider: 'openai',
+      defaultModel: 'ai21/jamba-large-1.7',
+      providers: {
+        openai: {
+          apiKey: '',
+          baseUrl: 'https://api.openai.com/v1',
+          models: [],
+          selectedModel: 'ai21/jamba-large-1.7'
+        }
+      }
+    } as any)
+
+    expect(result.defaultModel).toBe('z-ai/glm-5')
+    expect(result.providers.openai.selectedModel).toBe('z-ai/glm-5')
+  })
+
   it('preserves lastWorkspacePath when string', () => {
     const result = sanitizeSettings({ lastWorkspacePath: '/home/user/project' } as any)
     expect(result.lastWorkspacePath).toBe('/home/user/project')

@@ -6,6 +6,16 @@ import type {
   LMStudioCompatibility
 } from '../../src/types'
 
+const DEFAULT_FALLBACK_MODEL = 'z-ai/glm-5'
+
+function normalizeLegacyModel(model: string): string {
+  const trimmed = model.trim()
+  if (trimmed.toLowerCase().includes('jamba')) {
+    return DEFAULT_FALLBACK_MODEL
+  }
+  return model
+}
+
 const DEFAULT_SETTINGS: Settings = {
   activeProvider: 'openrouter',
   providers: {
@@ -18,7 +28,7 @@ const DEFAULT_SETTINGS: Settings = {
       apiKey: '',
       baseUrl: 'https://openrouter.ai/api/v1',
       models: [],
-      selectedModel: 'z-ai/glm-5'
+      selectedModel: DEFAULT_FALLBACK_MODEL
     },
     ollama: {
       apiKey: '',
@@ -32,7 +42,7 @@ const DEFAULT_SETTINGS: Settings = {
       compatibility: 'openai'
     }
   },
-  defaultModel: 'z-ai/glm-5',
+  defaultModel: DEFAULT_FALLBACK_MODEL,
   temperatureEnabled: false,
   temperature: 1.0,
   maxTokens: 8192,
@@ -122,7 +132,7 @@ function sanitizeProviderSettings(value: unknown, defaults: ProviderSettings): P
     models,
     compatibility: sanitizeCompatibility(raw.compatibility, defaults.compatibility),
     selectedModel: typeof raw.selectedModel === 'string'
-      ? raw.selectedModel
+      ? normalizeLegacyModel(raw.selectedModel)
       : defaults.selectedModel
   }
 }
@@ -143,7 +153,7 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     : DEFAULT_SETTINGS.activeProvider
 
   const defaultModel = typeof s.defaultModel === 'string' && s.defaultModel.trim().length > 0
-    ? s.defaultModel
+    ? normalizeLegacyModel(s.defaultModel)
     : DEFAULT_SETTINGS.defaultModel
 
   const activeRawSelectedModel = typeof s.providers?.[activeProvider]?.selectedModel === 'string'
