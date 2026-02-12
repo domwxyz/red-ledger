@@ -1,5 +1,5 @@
-import { resolve } from 'path'
-import { existsSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync, lstatSync } from 'fs'
+import { dirname, resolve } from 'path'
+import { existsSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync, lstatSync, mkdirSync } from 'fs'
 import { resolveWorkspacePath, PathJailError } from './pathJail'
 import { loadGitignoreRules, isIgnoredByGitignore, type GitignoreRule } from './gitignore'
 import type { FileNode, Settings } from '../../src/types'
@@ -131,6 +131,8 @@ export class WorkspaceService {
         }
       }
     }
+
+    mkdirSync(dirname(fullPath), { recursive: true })
 
     if (append) {
       appendFileSync(fullPath, content, 'utf-8')
