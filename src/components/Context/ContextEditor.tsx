@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Save, RotateCcw, FolderOpen } from 'lucide-react'
 import { Editor } from '../Editor/Editor'
 import { useUIStore } from '@/store'
 import { cn } from '@/lib/utils'
+
+const CONTEXT_HEADER_WRAP_BREAKPOINT = 225
 
 interface ContextEditorProps {
   type: 'system' | 'user' | 'org'
@@ -14,8 +16,35 @@ export function ContextEditor({ type, title, description }: ContextEditorProps) 
   const [content, setContent] = useState('')
   const [savedSnapshot, setSavedSnapshot] = useState('')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle')
+  const headerRef = useRef<HTMLDivElement>(null)
+  const [forceButtonWrap, setForceButtonWrap] = useState(false)
 
   const isDirty = content !== savedSnapshot
+
+  useEffect(() => {
+    const node = headerRef.current
+    if (!node) return
+
+    const update = () => {
+      setForceButtonWrap(node.clientWidth < CONTEXT_HEADER_WRAP_BREAKPOINT)
+    }
+
+    update()
+
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (typeof width === 'number') {
+        setForceButtonWrap(width < CONTEXT_HEADER_WRAP_BREAKPOINT)
+      }
+    })
+    observer.observe(node)
+
+    return () => observer.disconnect()
+  }, [])
 
   // Load content on mount
   useEffect(() => {
@@ -101,10 +130,17 @@ export function ContextEditor({ type, title, description }: ContextEditorProps) 
   return (
     <div className="editor-container flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className="editor-header shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+      <div ref={headerRef} className="editor-header shrink-0 flex-wrap">
+        <div className={cn('flex items-center gap-2 min-w-0', forceButtonWrap ? 'basis-full' : 'flex-1')}>
           <span className="font-medium text-soft-charcoal whitespace-nowrap shrink-0">{title}</span>
-          <span className="text-[11px] text-soft-charcoal/35 hidden sm:block min-w-0 flex-1 truncate">{description}</span>
+          <span
+            className={cn(
+              'text-[11px] text-soft-charcoal/35 min-w-0 flex-1 truncate',
+              forceButtonWrap ? 'hidden' : 'hidden sm:block'
+            )}
+          >
+            {description}
+          </span>
           {isDirty && (
             <span className="text-[11px] text-warning shrink-0">&#x2022; Unsaved</span>
           )}
@@ -113,7 +149,12 @@ export function ContextEditor({ type, title, description }: ContextEditorProps) 
           )}
         </div>
 
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div
+          className={cn(
+            'flex items-center gap-0.5 shrink-0',
+            forceButtonWrap ? 'basis-full justify-end mt-1' : 'ml-auto'
+          )}
+        >
           <button
             onClick={handleReset}
             className="btn btn-ghost btn-xs text-soft-charcoal/40 hover:text-soft-charcoal"

@@ -31,20 +31,23 @@ export function ChatPanel() {
           <ChatInput streaming={streaming} />
         </>
       ) : (
-        /* Empty State */
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="text-6xl text-rca-red/15 leading-none">&#128213;</div>
-            <div>
-              <h3 className="text-base font-semibold text-soft-charcoal">
-                Red Ledger
-              </h3>
-              <p className="text-xs text-soft-charcoal/40 max-w-[240px] mt-1.5 leading-relaxed">
-                Create a new conversation or select one from the sidebar to get started.
-              </p>
+        <>
+          {/* Empty State */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="text-6xl text-rca-red/15 leading-none">&#128213;</div>
+              <div>
+                <h3 className="text-base font-semibold text-soft-charcoal">
+                  Red Ledger
+                </h3>
+                <p className="text-xs text-soft-charcoal/40 max-w-[240px] mt-1.5 leading-relaxed">
+                  Create a new conversation or select one from the sidebar to get started.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+          <ChatInput streaming={streaming} />
+        </>
       )}
     </div>
   )

@@ -3,7 +3,11 @@ import { Plus, Trash2, Pencil, Check, X } from 'lucide-react'
 import { useConversationStore, useUIStore } from '@/store'
 import { cn, formatTimestamp, truncate } from '@/lib/utils'
 
-export function ConversationList() {
+interface ConversationListProps {
+  compactNewChatButton?: boolean
+}
+
+export function ConversationList({ compactNewChatButton = false }: ConversationListProps) {
   const conversations = useConversationStore((s) => s.conversations)
   const activeConversationId = useConversationStore((s) => s.activeConversationId)
   const loadConversations = useConversationStore((s) => s.loadConversations)
@@ -60,10 +64,14 @@ export function ConversationList() {
       <div className="p-3 pb-2">
         <button
           onClick={handleCreate}
-          className="btn btn-primary btn-sm w-full gap-2"
+          className={cn(
+            'btn btn-primary btn-sm w-full whitespace-nowrap',
+            compactNewChatButton ? 'px-0' : 'gap-2'
+          )}
+          title="New Chat"
         >
           <Plus size={14} />
-          New Chat
+          {!compactNewChatButton && 'New Chat'}
         </button>
       </div>
 

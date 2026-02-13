@@ -1,9 +1,13 @@
+import { useEffect, useRef, useState } from 'react'
 import { MessageSquare, FolderOpen, Settings } from 'lucide-react'
 import { useUIStore } from '@/store'
 import { ConversationList } from './ConversationList'
 import { WorkspaceTree } from './WorkspaceTree'
 import { SettingsPanel } from './SettingsPanel'
 import { cn } from '@/lib/utils'
+
+const SIDEBAR_TAB_TEXT_BREAKPOINT = 260
+const SIDEBAR_NEW_CHAT_TEXT_BREAKPOINT = 165
 
 const TABS = [
   { id: 'conversations' as const, icon: MessageSquare, label: 'Chats' },
@@ -14,9 +18,39 @@ const TABS = [
 export function Sidebar() {
   const sidebarTab = useUIStore((s) => s.sidebarTab)
   const setSidebarTab = useUIStore((s) => s.setSidebarTab)
+  const sidebarRef = useRef<HTMLDivElement>(null)
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(null)
+
+  useEffect(() => {
+    const node = sidebarRef.current
+    if (!node) return
+
+    const updateWidth = () => {
+      setSidebarWidth(node.clientWidth)
+    }
+
+    updateWidth()
+
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (typeof width === 'number') {
+        setSidebarWidth(width)
+      }
+    })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const hideTabText = sidebarWidth !== null && sidebarWidth < SIDEBAR_TAB_TEXT_BREAKPOINT
+  const hideNewChatText = sidebarWidth !== null && sidebarWidth < SIDEBAR_NEW_CHAT_TEXT_BREAKPOINT
 
   return (
-    <div className="h-full flex flex-col bg-paper-stack">
+    <div ref={sidebarRef} className="h-full flex flex-col bg-paper-stack">
       {/* Tab Bar */}
       <div className="flex items-stretch bg-paper-stack px-2 pt-2 gap-1">
         {TABS.map(({ id, icon: Icon, label }) => {
@@ -34,7 +68,7 @@ export function Sidebar() {
               title={label}
             >
               <Icon size={14} strokeWidth={isActive ? 2.25 : 1.75} />
-              <span className="hidden sm:inline">{label}</span>
+              {!hideTabText && <span className="whitespace-nowrap">{label}</span>}
             </button>
           )
         })}
@@ -44,7 +78,7 @@ export function Sidebar() {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden bg-paper mx-2 mb-2 border-x border-b border-weathered rounded-b-lg">
-        {sidebarTab === 'conversations' && <ConversationList />}
+        {sidebarTab === 'conversations' && <ConversationList compactNewChatButton={hideNewChatText} />}
         {sidebarTab === 'workspace' && <WorkspaceTree />}
         {sidebarTab === 'settings' && <SettingsPanel />}
       </div>

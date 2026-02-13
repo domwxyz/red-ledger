@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { Send, Square, Paperclip, X } from 'lucide-react'
-import { useConversationStore, useSettingsStore } from '@/store'
+import { useConversationStore, useSettingsStore, useUIStore } from '@/store'
 import type { useStreaming } from '@/hooks/useStreaming'
 import type { Attachment } from '@/types'
 
@@ -14,7 +14,9 @@ export function ChatInput({ streaming }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const activeConversationId = useConversationStore((s) => s.activeConversationId)
+  const createConversation = useConversationStore((s) => s.createConversation)
   const settings = useSettingsStore((s) => s.settings)
+  const workspacePath = useUIStore((s) => s.workspacePath)
   const { isStreaming, sendMessage, cancel } = streaming
 
   const handleAttach = useCallback(async () => {
@@ -30,7 +32,18 @@ export function ChatInput({ streaming }: ChatInputProps) {
 
   const handleSend = useCallback(async () => {
     const content = input.trim()
-    if ((!content && attachments.length === 0) || !activeConversationId || isStreaming) return
+    if ((!content && attachments.length === 0) || !settings || isStreaming) return
+
+    let conversationId = activeConversationId
+    if (!conversationId) {
+      try {
+        const createdConversation = await createConversation({ workspacePath })
+        conversationId = createdConversation.id
+      } catch {
+        return
+      }
+    }
+    if (!conversationId) return
 
     const pending = attachments.length > 0 ? [...attachments] : undefined
     setInput('')
@@ -41,7 +54,7 @@ export function ChatInput({ streaming }: ChatInputProps) {
     }
 
     await sendMessage(content, pending)
-  }, [input, attachments, activeConversationId, isStreaming, sendMessage])
+  }, [input, attachments, activeConversationId, createConversation, workspacePath, settings, isStreaming, sendMessage])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -60,7 +73,7 @@ export function ChatInput({ streaming }: ChatInputProps) {
     }
   }
 
-  const isDisabled = !activeConversationId || !settings
+  const isDisabled = !settings
 
   return (
     <div className="border-t border-weathered bg-paper-stack/30 px-4 py-3">
@@ -94,10 +107,12 @@ export function ChatInput({ streaming }: ChatInputProps) {
           onKeyDown={handleKeyDown}
           placeholder={
             isDisabled
-              ? 'Select a conversation...'
+              ? 'Loading settings...'
               : isStreaming
                 ? 'Waiting for response...'
-                : 'Type a message... (Enter to send)'
+                : activeConversationId
+                  ? 'Type a message... (Enter to send)'
+                  : 'Start a new conversation... (Enter to send)'
           }
           disabled={isDisabled || isStreaming}
           rows={1}
