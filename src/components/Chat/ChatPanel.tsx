@@ -34,7 +34,7 @@ export function ChatPanel() {
         /* Empty State */
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-4">
-            <div className="text-6xl text-rca-red/15 leading-none">&#9830;</div>
+            <div className="text-6xl text-rca-red/15 leading-none">&#128213;</div>
             <div>
               <h3 className="text-base font-semibold text-soft-charcoal">
                 Red Ledger
