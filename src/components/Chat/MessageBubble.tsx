@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { Paperclip } from 'lucide-react'
-import type { Message, ToolCall } from '@/types'
+import type { Attachment, Message, ToolCall } from '@/types'
 import { ToolCallCard } from './ToolCallCard'
 import {
   MessageActionsBar,
@@ -98,11 +98,23 @@ function buildSegments(content: string, toolCalls: ToolCall[]): Segment[] {
   return segments
 }
 
-/** Extract user-visible text from a user message (strips attachment blocks). */
-function extractUserText(content: string): string {
+function parseLegacyAttachmentBlocks(content: string): { text: string; attachments: Attachment[] } {
   const separator = '\n\n---\n**Attached file: '
   const idx = content.indexOf(separator)
-  return idx === -1 ? content : content.slice(0, idx)
+  if (idx === -1) {
+    return { text: content, attachments: [] }
+  }
+
+  const text = content.slice(0, idx)
+  const rest = content.slice(idx)
+  const attachmentRegex = /\n\n---\n\*\*Attached file: (.+?)\*\*\n```\n([\s\S]*?)\n```/g
+  const attachments: Attachment[] = []
+  let match: RegExpExecArray | null
+  while ((match = attachmentRegex.exec(rest)) !== null) {
+    attachments.push({ name: match[1], content: match[2] })
+  }
+
+  return { text, attachments }
 }
 
 export function MessageBubble({
@@ -121,11 +133,19 @@ export function MessageBubble({
     }
   }, [message.toolCalls])
 
+  const userParts = useMemo(() => {
+    if (message.role !== 'user') return null
+    if (message.attachments && message.attachments.length > 0) {
+      return { text: message.content, attachments: message.attachments }
+    }
+    return parseLegacyAttachmentBlocks(message.content)
+  }, [message.attachments, message.content, message.role])
+
   // ─── Actions ───────────────────────────────────────────────────────────────
 
   // Copy action: for user messages copy the user text only; for assistant copy raw content
   const copyText = message.role === 'user'
-    ? extractUserText(message.content)
+    ? (userParts?.text || '')
     : message.content
   const copyAction = useCopyAction(copyText)
 
@@ -138,25 +158,6 @@ export function MessageBubble({
     list.push(copyAction)
     return list
   }, [copyAction, onRetry, isStreaming, message.role])
-
-  // Parse user message: separate text from attachment blocks
-  const userParts = useMemo(() => {
-    if (message.role !== 'user') return null
-    const separator = '\n\n---\n**Attached file: '
-    const idx = message.content.indexOf(separator)
-    if (idx === -1) return { text: message.content, attachments: [] }
-
-    const text = message.content.slice(0, idx)
-    const rest = message.content.slice(idx)
-    // Match each attachment block
-    const attachmentRegex = /\n\n---\n\*\*Attached file: (.+?)\*\*\n```\n([\s\S]*?)\n```/g
-    const attachments: { name: string; content: string }[] = []
-    let match
-    while ((match = attachmentRegex.exec(rest)) !== null) {
-      attachments.push({ name: match[1], content: match[2] })
-    }
-    return { text, attachments }
-  }, [message.content, message.role])
 
   // ─── Assistant Message ─────────────────────────────────────────────────────
 

@@ -119,7 +119,12 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         const conv = conversations.find((c) => c.id === data.conversationId)
         const isFirstUserMessage = messages.filter((m) => m.role === 'user').length === 1
         if (conv && conv.title === 'New Chat' && isFirstUserMessage) {
-          const title = data.content.slice(0, 50).trim() + (data.content.length > 50 ? '...' : '')
+          const normalized = data.content.trim()
+          const fallback = data.attachments?.[0]?.name
+            ? `Attached: ${data.attachments[0].name}`
+            : 'New Chat'
+          const base = normalized.length > 0 ? normalized : fallback
+          const title = base.slice(0, 50).trim() + (base.length > 50 ? '...' : '')
           get().renameConversation(conv.id, title)
         }
       }

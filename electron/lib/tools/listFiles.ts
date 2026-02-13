@@ -1,5 +1,6 @@
 import { registerTool } from './registry'
 import { getWorkspaceService } from '../../ipc/fs'
+import { optionalStringArg, requireObjectArgs } from './args'
 
 registerTool({
   definition: {
@@ -20,8 +21,9 @@ registerTool({
     }
   },
   execute: async (args) => {
-    const path = args.path as string | undefined
+    const input = args === undefined ? {} : requireObjectArgs(args, 'list_files')
+    const path = optionalStringArg(input, 'path', 'list_files')
     const workspace = getWorkspaceService()
-    return workspace.listFiles(path || undefined)
+    return workspace.listFiles(path)
   }
 })

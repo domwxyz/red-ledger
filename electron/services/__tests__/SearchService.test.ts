@@ -95,4 +95,57 @@ describe('SearchService.fetchUrl', () => {
       }
     ])
   })
+
+  it('ignores invalid numeric entities instead of crashing text extraction', async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      data: `<!doctype html>
+        <html>
+          <body>
+            <p>Invalid decimal: &#9999999999999;</p>
+            <p>Invalid hex: &#x110000;</p>
+            <p>Valid copyright: &#169;</p>
+          </body>
+        </html>`,
+      headers: {
+        'content-type': 'text/html; charset=utf-8'
+      }
+    })
+
+    const service = new SearchService(() => ({} as never))
+    const result = await service.fetchUrl('https://news.example.org/', 20_000)
+
+    expect(result.content).toContain('Invalid decimal: &#9999999999999;')
+    expect(result.content).toContain('Invalid hex: &#x110000;')
+    expect(result.content).toContain('Valid copyright: \u00A9')
+  })
+})
+
+describe('SearchService.search', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('falls back to SerpAPI when Tavily fails and SerpAPI key is configured', async () => {
+    mockedAxios.post.mockRejectedValueOnce(new Error('Tavily down'))
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        organic_results: [
+          { title: 'Result One', link: 'https://example.com/one', snippet: 'Snippet one' },
+          { title: 'Result Two', link: 'https://example.com/two', snippet: 'Snippet two' }
+        ]
+      }
+    })
+
+    const service = new SearchService(() => ({
+      tavilyApiKey: 'tvly-test',
+      serpApiKey: 'serp-test'
+    } as never))
+
+    const results = await service.search('hello world', 2)
+
+    expect(results).toEqual([
+      { title: 'Result One', url: 'https://example.com/one', snippet: 'Snippet one' },
+      { title: 'Result Two', url: 'https://example.com/two', snippet: 'Snippet two' }
+    ])
+  })
 })

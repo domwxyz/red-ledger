@@ -1,6 +1,6 @@
 import { registerTool } from './registry'
 import { getSearchService } from '../../ipc/search'
-import { PathJailError } from '../../services/pathJail'
+import { numberArg, requireObjectArgs, requireStringArg } from './args'
 
 registerTool({
   definition: {
@@ -25,9 +25,14 @@ registerTool({
     }
   },
   execute: async (args) => {
-    const query = args.query as string
-    if (!query) throw new PathJailError('INVALID_INPUT', 'web_search requires a "query" argument')
-    const numResults = parseInt(String(args.num_results || '5'), 10) || 5
+    const input = requireObjectArgs(args, 'web_search')
+    const query = requireStringArg(input, 'query', 'web_search')
+    const numResults = numberArg(input, 'num_results', 'web_search', {
+      defaultValue: 5,
+      min: 1,
+      max: 10,
+      integer: true
+    })
     const search = getSearchService()
     return search.search(query, numResults)
   }

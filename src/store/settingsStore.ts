@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Settings, ProviderName } from '@/types'
+import type { Settings } from '@/types'
 import { formatError } from '@/lib/errors'
 import { notify } from '@/lib/notify'
 
@@ -12,9 +12,6 @@ interface SettingsState {
 
   loadSettings: () => Promise<void>
   saveSettings: (settings: Settings) => void
-  updateProvider: (name: ProviderName, partial: Partial<Settings['providers'][ProviderName]>) => void
-  setActiveProvider: (name: ProviderName) => void
-  setStrictMode: (enabled: boolean) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -37,7 +34,7 @@ function debouncedPersist(settings: Settings) {
   }, SAVE_DEBOUNCE_MS)
 }
 
-export const useSettingsStore = create<SettingsState>((set, get) => ({
+export const useSettingsStore = create<SettingsState>((set) => ({
   settings: null,
   isLoading: false,
   error: null,
@@ -62,32 +59,5 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ settings })
     // Debounced disk write
     debouncedPersist(settings)
-  },
-
-  updateProvider: (name, partial) => {
-    const { settings, saveSettings } = get()
-    if (!settings) return
-
-    saveSettings({
-      ...settings,
-      providers: {
-        ...settings.providers,
-        [name]: { ...settings.providers[name], ...partial }
-      }
-    })
-  },
-
-  setActiveProvider: (name) => {
-    const { settings, saveSettings } = get()
-    if (!settings) return
-
-    saveSettings({ ...settings, activeProvider: name })
-  },
-
-  setStrictMode: (enabled) => {
-    const { settings, saveSettings } = get()
-    if (!settings) return
-
-    saveSettings({ ...settings, strictMode: enabled })
   }
 }))

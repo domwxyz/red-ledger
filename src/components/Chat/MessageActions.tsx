@@ -21,11 +21,14 @@ export interface MessageAction {
 export function useCopyAction(text: string): MessageAction {
   const [copied, setCopied] = useState(false)
 
-  const onClick = useCallback(() => {
-    navigator.clipboard.writeText(text).then(() => {
+  const onClick = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    })
+    } catch {
+      // Clipboard access can be denied by the environment/user permissions.
+    }
   }, [text])
 
   return {

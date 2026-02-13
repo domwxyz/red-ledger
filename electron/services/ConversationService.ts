@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import type Database from 'better-sqlite3'
-import type { Conversation, Message } from '../../src/types'
+import type { Attachment, Conversation, Message } from '../../src/types'
 
 /**
  * Domain service for conversations and messages.
@@ -41,6 +41,7 @@ export class ConversationService {
         conversation_id TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
         content TEXT NOT NULL,
+        attachments TEXT,
         thinking TEXT,
         tool_calls TEXT,
         timestamp TEXT NOT NULL,
@@ -51,6 +52,12 @@ export class ConversationService {
       CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
     `)
+
+    // Migration path for existing databases created before attachments support.
+    const columns = this.db.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>
+    if (!columns.some((column) => column.name === 'attachments')) {
+      this.db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT')
+    }
   }
 
   // ─── Column Mapping ───────────────────────────────────────────────────────
@@ -68,11 +75,29 @@ export class ConversationService {
   }
 
   private toMessage(row: Record<string, unknown>): Message {
+    let attachments: Attachment[] | undefined
+    if (typeof row.attachments === 'string' && row.attachments.length > 0) {
+      try {
+        const parsed = JSON.parse(row.attachments) as unknown
+        if (Array.isArray(parsed)) {
+          attachments = parsed.filter((item): item is Attachment => (
+            !!item
+            && typeof item === 'object'
+            && typeof (item as Attachment).name === 'string'
+            && typeof (item as Attachment).content === 'string'
+          ))
+        }
+      } catch {
+        attachments = undefined
+      }
+    }
+
     return {
       id: row.id as string,
       conversationId: row.conversation_id as string,
       role: row.role as Message['role'],
       content: row.content as string,
+      attachments,
       thinking: row.thinking as string | undefined,
       toolCalls: row.tool_calls as string | undefined,
       timestamp: row.timestamp as string,
@@ -135,6 +160,7 @@ export class ConversationService {
 
   updateConversation(id: string, data: Partial<Conversation>): void {
     const now = Date.now()
+    const shouldUpdateWorkspacePath = data.workspacePath !== undefined
 
     this.stmt(
       'updateConversation',
@@ -143,14 +169,18 @@ export class ConversationService {
         model = COALESCE(?, model),
         provider = COALESCE(?, provider),
         updated_at = ?,
-        workspace_path = COALESCE(?, workspace_path)
+        workspace_path = CASE
+          WHEN ? = 1 THEN ?
+          ELSE workspace_path
+        END
        WHERE id = ?`
     ).run(
       data.title ?? null,
       data.model ?? null,
       data.provider ?? null,
       now,
-      data.workspacePath !== undefined ? data.workspacePath : null,
+      shouldUpdateWorkspacePath ? 1 : 0,
+      data.workspacePath ?? null,
       id
     )
   }
@@ -190,13 +220,14 @@ export class ConversationService {
     const createInTransaction = this.db.transaction(() => {
       this.stmt(
         'createMessage',
-        `INSERT INTO messages (id, conversation_id, role, content, thinking, tool_calls, timestamp, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO messages (id, conversation_id, role, content, attachments, thinking, tool_calls, timestamp, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         id,
         data.conversationId,
         data.role,
         data.content,
+        data.attachments && data.attachments.length > 0 ? JSON.stringify(data.attachments) : null,
         data.thinking ?? null,
         data.toolCalls || null,
         timestamp,
@@ -239,15 +270,15 @@ export class ConversationService {
   deleteMessagesFrom(conversationId: string, messageId: string): void {
     const row = this.stmt(
       'getConversationMessage',
-      'SELECT * FROM messages WHERE id = ? AND conversation_id = ?'
-    ).get(messageId, conversationId) as Record<string, unknown> | undefined
+      'SELECT rowid FROM messages WHERE id = ? AND conversation_id = ?'
+    ).get(messageId, conversationId) as { rowid: number } | undefined
 
     if (!row) return
 
     this.stmt(
       'deleteMessagesFrom',
-      'DELETE FROM messages WHERE conversation_id = ? AND created_at >= ?'
-    ).run(conversationId, row.created_at)
+      'DELETE FROM messages WHERE conversation_id = ? AND rowid >= ?'
+    ).run(conversationId, row.rowid)
   }
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────

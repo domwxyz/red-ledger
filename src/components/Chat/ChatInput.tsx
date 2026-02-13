@@ -40,7 +40,7 @@ export function ChatInput({ streaming }: ChatInputProps) {
       textareaRef.current.style.height = 'auto'
     }
 
-    await sendMessage(content || '(see attached files)', pending)
+    await sendMessage(content, pending)
   }, [input, attachments, activeConversationId, isStreaming, sendMessage])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

@@ -1,8 +1,8 @@
 import { dialog, BrowserWindow } from 'electron'
 import { registerTool } from './registry'
 import { getWorkspaceService } from '../../ipc/fs'
-import { PathJailError } from '../../services/pathJail'
 import type { DialogAdapter } from '../../services/WorkspaceService'
+import { requireObjectArgs, requireStringArg } from './args'
 
 function dialogForWindow(win: BrowserWindow | null): DialogAdapter | null {
   if (!win) return null
@@ -32,12 +32,12 @@ registerTool({
     }
   },
   execute: async (args, win) => {
-    const path = args.path as string
-    const content = args.content as string
-    if (!path) throw new PathJailError('INVALID_INPUT', 'append_file requires a "path" argument')
-    if (content === undefined || content === null) {
-      throw new PathJailError('INVALID_INPUT', 'append_file requires a "content" argument')
-    }
+    const input = requireObjectArgs(args, 'append_file')
+    const path = requireStringArg(input, 'path', 'append_file')
+    const content = requireStringArg(input, 'content', 'append_file', {
+      trim: false,
+      allowEmpty: true
+    })
     const workspace = getWorkspaceService()
     await workspace.writeFile(dialogForWindow(win), path, content, true)
     return { success: true, path }

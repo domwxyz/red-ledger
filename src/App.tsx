@@ -22,10 +22,13 @@ export default function App() {
         useUIStore.getState().setWorkspacePath(settings.lastWorkspacePath)
       } catch {
         useUIStore.getState().setWorkspacePath(null)
-        useSettingsStore.getState().saveSettings({
-          ...settings,
-          lastWorkspacePath: null
-        })
+        const latestSettings = useSettingsStore.getState().settings
+        if (latestSettings) {
+          useSettingsStore.getState().saveSettings({
+            ...latestSettings,
+            lastWorkspacePath: null
+          })
+        }
         notify({
           type: 'warning',
           message: `Previous workspace no longer exists: ${settings.lastWorkspacePath}`
@@ -34,7 +37,6 @@ export default function App() {
     }
 
     validateWorkspace()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.lastWorkspacePath])
 
   return (

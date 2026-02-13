@@ -45,6 +45,7 @@ export interface Message {
   conversationId: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  attachments?: Attachment[]
   thinking?: string      // optional raw thinking/reasoning token stream
   toolCalls?: string     // JSON-serialized ToolCall[]
   timestamp: string      // ISO 8601 system timestamp captured when message was created

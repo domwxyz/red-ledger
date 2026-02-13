@@ -1,6 +1,6 @@
 import { registerTool } from './registry'
 import { getSearchService } from '../../ipc/search'
-import { PathJailError } from '../../services/pathJail'
+import { numberArg, requireObjectArgs, requireStringArg } from './args'
 
 registerTool({
   definition: {
@@ -25,9 +25,14 @@ registerTool({
     }
   },
   execute: async (args) => {
-    const url = args.url as string
-    if (!url) throw new PathJailError('INVALID_INPUT', 'fetch_url requires a "url" argument')
-    const maxChars = parseInt(String(args.max_chars || '20000'), 10) || 20_000
+    const input = requireObjectArgs(args, 'fetch_url')
+    const url = requireStringArg(input, 'url', 'fetch_url')
+    const maxChars = numberArg(input, 'max_chars', 'fetch_url', {
+      defaultValue: 20_000,
+      min: 1_000,
+      max: 100_000,
+      integer: true
+    })
     const search = getSearchService()
     return search.fetchUrl(url, maxChars)
   }

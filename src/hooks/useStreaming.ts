@@ -1,11 +1,26 @@
-import { useState, useRef, useCallback } from 'react'
-import { useConversationStore, useSettingsStore } from '@/store'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { useConversationStore, useSettingsStore, useUIStore } from '@/store'
 import { formatError } from '@/lib/errors'
 import { notify } from '@/lib/notify'
 import type { StreamChunk, ToolCall, LLMRequest, Message, Attachment } from '@/types'
 
 const STREAM_THROTTLE_MS = 50
 const THINKING_ACTIVE_WINDOW_MS = 1500
+
+function buildAttachmentBlocks(attachments: Attachment[]): string {
+  return attachments.map(
+    (a) => `\n\n---\n**Attached file: ${a.name}**\n\`\`\`\n${a.content}\n\`\`\``
+  ).join('')
+}
+
+function buildUserMessageForLlm(content: string, attachments?: Attachment[]): string {
+  if (!attachments || attachments.length === 0) {
+    return content
+  }
+
+  const textPart = content.trim().length > 0 ? content : '(see attached files)'
+  return textPart + buildAttachmentBlocks(attachments)
+}
 
 /**
  * React hook that manages the LLM streaming lifecycle.
@@ -137,17 +152,10 @@ export function useStreaming() {
   const sendMessage = useCallback(async (content: string, attachments?: Attachment[]) => {
     const store = useConversationStore.getState()
     const conversationId = store.activeConversationId
+    const activeConversation = store.conversations.find((c) => c.id === conversationId) || null
     const currentSettings = useSettingsStore.getState().settings
     if (!conversationId || !currentSettings) return
-
-    // Build the full message content, appending any attachments
-    let fullContent = content
-    if (attachments && attachments.length > 0) {
-      const attachmentBlocks = attachments.map(
-        (a) => `\n\n---\n**Attached file: ${a.name}**\n\`\`\`\n${a.content}\n\`\`\``
-      )
-      fullContent = content + attachmentBlocks.join('')
-    }
+    const workspacePath = useUIStore.getState().workspacePath
 
     setIsStreaming(true)
     clearThinkingActivity()
@@ -156,30 +164,65 @@ export function useStreaming() {
     toolCallsRef.current = []
 
     try {
+      const configuredProvider = currentSettings.activeProvider
+      const configuredModel = currentSettings.providers[configuredProvider].selectedModel
+        ?? currentSettings.defaultModel
+      let isFirstMessage = store.messages.length === 0
+      if (isFirstMessage) {
+        const persistedMessages = await window.redLedger.listMessages(conversationId)
+        isFirstMessage = persistedMessages.length === 0
+      }
+
+      const lockedProvider = isFirstMessage
+        ? configuredProvider
+        : (activeConversation?.provider || configuredProvider)
+      const lockedModel = isFirstMessage
+        ? configuredModel
+        : (activeConversation?.model || configuredModel)
+
+      if (isFirstMessage) {
+        await window.redLedger.updateConversation(conversationId, {
+          provider: lockedProvider,
+          model: lockedModel,
+          workspacePath
+        })
+
+        useConversationStore.setState((state) => ({
+          conversations: state.conversations.map((conversation) =>
+            conversation.id === conversationId
+              ? {
+                ...conversation,
+                provider: lockedProvider,
+                model: lockedModel,
+                workspacePath
+              }
+              : conversation
+          )
+        }))
+      }
+
       // 1. Save user message to DB
       await store.addMessage({
         conversationId,
         role: 'user',
-        content: fullContent
+        content,
+        attachments
       })
 
       // 2. Build the message history for the LLM request
       const messages = useConversationStore.getState().messages.map((m) => ({
         role: m.role,
-        content: m.content,
+        content: m.role === 'user'
+          ? buildUserMessageForLlm(m.content, m.attachments)
+          : m.content,
         timestamp: m.timestamp
       }))
-
-      const activeProviderConfig = currentSettings.providers[currentSettings.activeProvider]
-      const resolvedModel = activeProviderConfig.selectedModel !== undefined
-        ? activeProviderConfig.selectedModel
-        : currentSettings.defaultModel
 
       const request: LLMRequest = {
         conversationId,
         messages,
-        model: resolvedModel,
-        provider: currentSettings.activeProvider,
+        model: lockedModel,
+        provider: lockedProvider,
         ...(currentSettings.temperatureEnabled ? { temperature: currentSettings.temperature } : {}),
         maxTokens: currentSettings.maxTokens
       }
@@ -276,6 +319,7 @@ export function useStreaming() {
               throttleRef.current = null
             }
 
+            cleanup()
             finalizeTempMessage(tempId, conversationId)
 
             setIsStreaming(false)
@@ -308,6 +352,23 @@ export function useStreaming() {
     }
   }, [clearThinkingActivity, finalizeTempMessage, markThinkingActivity])
 
+  useEffect(() => {
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current()
+        cleanupRef.current = null
+      }
+      if (throttleRef.current) {
+        clearTimeout(throttleRef.current)
+        throttleRef.current = null
+      }
+      if (thinkingActivityTimerRef.current) {
+        clearTimeout(thinkingActivityTimerRef.current)
+        thinkingActivityTimerRef.current = null
+      }
+    }
+  }, [])
+
   const retry = useCallback(async () => {
     if (isStreaming) return
 
@@ -327,8 +388,7 @@ export function useStreaming() {
     // Delete the user message and everything after it from DB + store
     await store.deleteMessagesFrom(lastUserMsg.id)
 
-    // Re-send the same content (attachments are already baked into the content string)
-    await sendMessage(lastUserMsg.content)
+    await sendMessage(lastUserMsg.content, lastUserMsg.attachments)
   }, [isStreaming, sendMessage])
 
   return {

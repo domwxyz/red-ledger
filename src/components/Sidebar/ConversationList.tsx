@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Plus, Trash2, Pencil, Check, X } from 'lucide-react'
-import { useConversationStore } from '@/store'
+import { useConversationStore, useUIStore } from '@/store'
 import { cn, formatTimestamp, truncate } from '@/lib/utils'
 
 export function ConversationList() {
@@ -11,6 +11,7 @@ export function ConversationList() {
   const deleteConversation = useConversationStore((s) => s.deleteConversation)
   const renameConversation = useConversationStore((s) => s.renameConversation)
   const setActiveConversation = useConversationStore((s) => s.setActiveConversation)
+  const workspacePath = useUIStore((s) => s.workspacePath)
 
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -20,7 +21,7 @@ export function ConversationList() {
   }, [loadConversations])
 
   const handleCreate = async () => {
-    await createConversation()
+    await createConversation({ workspacePath })
   }
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {

@@ -25,7 +25,13 @@ export class SearchService {
 
     // Try Tavily first (preferred)
     if (settings.tavilyApiKey) {
-      return this.searchTavily(query, count, settings.tavilyApiKey)
+      try {
+        return await this.searchTavily(query, count, settings.tavilyApiKey)
+      } catch {
+        if (!settings.serpApiKey) {
+          throw new Error('Tavily search failed and no SerpAPI key is configured.')
+        }
+      }
     }
 
     // Fall back to SerpAPI
@@ -260,8 +266,21 @@ export class SearchService {
       .replace(/&apos;/gi, "'")
 
     return named
-      .replace(/&#(\d+);/g, (_m, dec) => String.fromCodePoint(Number(dec)))
-      .replace(/&#x([0-9a-f]+);/gi, (_m, hex) => String.fromCodePoint(parseInt(hex, 16)))
+      .replace(/&#(\d+);/g, (match, dec) => this.decodeCodePoint(dec, 10) ?? match)
+      .replace(/&#x([0-9a-f]+);/gi, (match, hex) => this.decodeCodePoint(hex, 16) ?? match)
+  }
+
+  private decodeCodePoint(value: string, radix: 10 | 16): string | null {
+    const parsed = Number.parseInt(value, radix)
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 0x10FFFF) {
+      return null
+    }
+
+    try {
+      return String.fromCodePoint(parsed)
+    } catch {
+      return null
+    }
   }
 
   private async searchTavily(
