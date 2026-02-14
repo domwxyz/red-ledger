@@ -14,6 +14,7 @@ interface MessageListProps {
 export function MessageList({ isStreaming, isReceivingThinking, onRetry }: MessageListProps) {
   const messages = useConversationStore((s) => s.messages)
   const isLoadingMessages = useConversationStore((s) => s.isLoadingMessages)
+  const forkConversationFromMessage = useConversationStore((s) => s.forkConversationFromMessage)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const prevMessageCountRef = useRef(0)
@@ -24,6 +25,10 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry }: Messa
     if (!el) return true
     return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX
   }, [])
+
+  const handleFork = useCallback(async (messageId: string) => {
+    await forkConversationFromMessage(messageId)
+  }, [forkConversationFromMessage])
 
   // Auto-scroll: only when a new message is added, or when the user is already near the bottom.
   useEffect(() => {
@@ -84,6 +89,9 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry }: Messa
             isStreaming={messageIsStreaming}
             isReceivingThinking={isReceivingThinking && messageIsStreaming}
             onRetry={canRetry && idx === lastUserIdx ? onRetry : undefined}
+            onFork={message.role === 'assistant' && !isStreaming
+              ? () => { void handleFork(message.id).catch(() => {}) }
+              : undefined}
           />
         )
       })}

@@ -105,6 +105,14 @@ export class ConversationService {
     }
   }
 
+  private buildForkTitle(sourceTitle: string): string {
+    const trimmed = sourceTitle.trim()
+    const base = trimmed.length > 0 ? trimmed : 'New Chat'
+    return base.endsWith(' (Fork)')
+      ? base
+      : `${base} (Fork)`
+  }
+
   // ─── Prepared Statement Cache ─────────────────────────────────────────────
 
   private stmt(key: string, sql: string): Database.Statement {
@@ -199,6 +207,89 @@ export class ConversationService {
     })
 
     deleteInTransaction(id)
+  }
+
+  forkConversation(conversationId: string, messageId: string): Conversation {
+    const sourceConversation = this.stmt(
+      'getConversationForFork',
+      'SELECT * FROM conversations WHERE id = ?'
+    ).get(conversationId) as Record<string, unknown> | undefined
+
+    if (!sourceConversation) {
+      throw new Error(`Conversation not found: ${conversationId}`)
+    }
+
+    const cutoff = this.stmt(
+      'getForkCutoff',
+      'SELECT rowid FROM messages WHERE id = ? AND conversation_id = ?'
+    ).get(messageId, conversationId) as { rowid: number } | undefined
+
+    if (!cutoff) {
+      throw new Error(`Message not found in conversation: ${messageId}`)
+    }
+
+    const sourceMessages = this.stmt(
+      'listMessagesForFork',
+      `SELECT role, content, attachments, thinking, tool_calls, timestamp, created_at
+       FROM messages
+       WHERE conversation_id = ? AND rowid <= ?
+       ORDER BY rowid ASC`
+    ).all(conversationId, cutoff.rowid) as Array<{
+      role: Message['role']
+      content: string
+      attachments: string | null
+      thinking: string | null
+      tool_calls: string | null
+      timestamp: string
+      created_at: number
+    }>
+
+    const forkConversationId = uuidv4()
+    const now = Date.now()
+    const forkTitle = this.buildForkTitle(sourceConversation.title as string)
+
+    const forkInTransaction = this.db.transaction(() => {
+      this.stmt(
+        'createForkConversation',
+        `INSERT INTO conversations (id, title, model, provider, created_at, updated_at, workspace_path)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        forkConversationId,
+        forkTitle,
+        sourceConversation.model as string,
+        sourceConversation.provider as Conversation['provider'],
+        now,
+        now,
+        sourceConversation.workspace_path as string | null
+      )
+
+      const insertForkMessage = this.stmt(
+        'insertForkMessage',
+        `INSERT INTO messages (id, conversation_id, role, content, attachments, thinking, tool_calls, timestamp, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+
+      for (const message of sourceMessages) {
+        insertForkMessage.run(
+          uuidv4(),
+          forkConversationId,
+          message.role,
+          message.content,
+          message.attachments,
+          message.thinking,
+          message.tool_calls,
+          message.timestamp,
+          message.created_at
+        )
+      }
+    })
+
+    forkInTransaction()
+
+    return this.toConversation(
+      this.stmt('getConversation', 'SELECT * FROM conversations WHERE id = ?')
+        .get(forkConversationId) as Record<string, unknown>
+    )
   }
 
   // ─── Message CRUD ─────────────────────────────────────────────────────────

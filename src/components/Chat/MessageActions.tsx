@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Copy, Check, RotateCcw } from 'lucide-react'
+import { Copy, Check, RotateCcw, GitFork } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 // ─── Action Descriptor ───────────────────────────────────────────────────────
@@ -46,6 +46,16 @@ export function retryAction(onRetry: () => void): MessageAction {
     icon: RotateCcw,
     label: 'Retry',
     onClick: onRetry
+  }
+}
+
+/** Fork action - starts a new chat from this message context. */
+export function forkAction(onFork: () => void): MessageAction {
+  return {
+    key: 'fork',
+    icon: GitFork,
+    label: 'Fork Chat',
+    onClick: onFork
   }
 }
 

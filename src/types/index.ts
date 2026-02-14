@@ -151,6 +151,7 @@ export interface RedLedgerAPI {
   createConversation(data: Partial<Conversation>): Promise<Conversation>
   updateConversation(id: string, data: Partial<Conversation>): Promise<void>
   deleteConversation(id: string): Promise<void>
+  forkConversation(conversationId: string, messageId: string): Promise<Conversation>
 
   // Messages
   listMessages(conversationId: string): Promise<Message[]>

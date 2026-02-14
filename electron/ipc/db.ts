@@ -46,6 +46,12 @@ export function registerDbHandlers(dbPath: string): void {
     return service.deleteConversation(id)
   })
 
+  handleIpc('db:forkConversation', (_e, conversationId, messageId) => {
+    assertString(conversationId, 'conversationId')
+    assertString(messageId, 'messageId')
+    return service.forkConversation(conversationId, messageId)
+  })
+
   // ─── Messages ───────────────────────────────────────────────────────────
 
   handleIpc('db:listMessages', (_e, conversationId) => {

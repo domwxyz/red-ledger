@@ -31,6 +31,7 @@ export interface IpcContract {
   'db:createConversation':      { params: [data: Partial<Conversation>];               result: Conversation }
   'db:updateConversation':      { params: [id: string, data: Partial<Conversation>];   result: void }
   'db:deleteConversation':      { params: [id: string];                                result: void }
+  'db:forkConversation':        { params: [conversationId: string, messageId: string]; result: Conversation }
 
   // Messages
   'db:listMessages':            { params: [conversationId: string];                    result: Message[] }

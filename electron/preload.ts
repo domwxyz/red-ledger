@@ -48,6 +48,9 @@ const api: RedLedgerAPI = {
   deleteConversation: (id: string) =>
     ipcRenderer.invoke('db:deleteConversation', id),
 
+  forkConversation: (conversationId: string, messageId: string) =>
+    ipcRenderer.invoke('db:forkConversation', conversationId, messageId),
+
   // ─── Messages ────────────────────────────────────────────────────────────
 
   listMessages: (conversationId: string) =>

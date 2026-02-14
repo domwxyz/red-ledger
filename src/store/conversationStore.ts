@@ -11,6 +11,7 @@ interface ConversationState {
 
   loadConversations: () => Promise<void>
   createConversation: (partial?: Partial<Conversation>) => Promise<Conversation>
+  forkConversationFromMessage: (messageId: string) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   renameConversation: (id: string, title: string) => Promise<void>
   setActiveConversation: (id: string | null) => Promise<void>
@@ -46,6 +47,31 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         messages: []
       }))
       return conversation
+    } catch (err) {
+      notify({ type: 'error', message: formatError(err) })
+      throw err
+    }
+  },
+
+  forkConversationFromMessage: async (messageId) => {
+    if (!window.redLedger) throw new Error('API not available')
+
+    const { activeConversationId } = get()
+    if (!activeConversationId) return
+
+    try {
+      const forkedConversation = await window.redLedger.forkConversation(activeConversationId, messageId)
+      const [conversations, messages] = await Promise.all([
+        window.redLedger.listConversations(),
+        window.redLedger.listMessages(forkedConversation.id)
+      ])
+
+      set({
+        conversations,
+        activeConversationId: forkedConversation.id,
+        messages,
+        isLoadingMessages: false
+      })
     } catch (err) {
       notify({ type: 'error', message: formatError(err) })
       throw err

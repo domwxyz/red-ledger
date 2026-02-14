@@ -7,6 +7,7 @@ import { ToolCallCard } from './ToolCallCard'
 import {
   MessageActionsBar,
   useCopyAction,
+  forkAction,
   retryAction,
   type MessageAction
 } from './MessageActions'
@@ -23,6 +24,8 @@ interface MessageBubbleProps {
   isReceivingThinking?: boolean
   /** If provided, a retry button is shown in the action bar. */
   onRetry?: () => void
+  /** If provided on assistant messages, shows a fork button. */
+  onFork?: () => void
 }
 
 /** A renderable segment: either a block of text or a tool call. */
@@ -123,7 +126,8 @@ export function MessageBubble({
   message,
   isStreaming,
   isReceivingThinking,
-  onRetry
+  onRetry,
+  onFork
 }: MessageBubbleProps) {
   // Parse tool calls from JSON string if present
   const toolCalls = useMemo<ToolCall[]>(() => {
@@ -174,9 +178,10 @@ export function MessageBubble({
 
     const list: MessageAction[] = []
     if (onRetry) list.push(retryAction(onRetry))
+    if (message.role === 'assistant' && onFork) list.push(forkAction(onFork))
     list.push(copyAction)
     return list
-  }, [copyAction, onRetry, isStreaming, message.role])
+  }, [copyAction, onRetry, onFork, isStreaming, message.role])
 
   // ─── Assistant Message ─────────────────────────────────────────────────────
 
