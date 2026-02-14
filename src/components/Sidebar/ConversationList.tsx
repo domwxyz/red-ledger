@@ -61,11 +61,11 @@ export function ConversationList({ compactNewChatButton = false }: ConversationL
   return (
     <div className="h-full flex flex-col">
       {/* New Chat Button */}
-      <div className="p-3 pb-2">
+      <div className="p-3 pb-2 flex justify-center">
         <button
           onClick={handleCreate}
           className={cn(
-            'btn btn-primary btn-sm w-full whitespace-nowrap',
+            'btn btn-primary btn-sm w-full max-w-[300px] whitespace-nowrap',
             compactNewChatButton ? 'px-0' : 'gap-2'
           )}
           title="New Chat"
