@@ -112,6 +112,7 @@ export function useStreaming() {
           m.id === tempId ? savedMsg : m
         )
       }))
+      useConversationStore.getState().touchConversation(conversationId, savedMsg.createdAt)
       clearTempRefsIfCurrent()
     }).catch((err) => {
       notify({

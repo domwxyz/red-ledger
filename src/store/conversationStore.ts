@@ -3,6 +3,10 @@ import type { Conversation, Message } from '@/types'
 import { formatError } from '@/lib/errors'
 import { notify } from '@/lib/notify'
 
+function sortConversationsByUpdatedAt(conversations: Conversation[]): Conversation[] {
+  return [...conversations].sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
 interface ConversationState {
   conversations: Conversation[]
   activeConversationId: string | null
@@ -17,6 +21,7 @@ interface ConversationState {
   setActiveConversation: (id: string | null) => Promise<void>
   loadMessages: (conversationId: string) => Promise<void>
   addMessage: (data: Omit<Message, 'id' | 'createdAt' | 'timestamp'>) => Promise<Message>
+  touchConversation: (id: string, updatedAt?: number) => void
   updateMessage: (id: string, data: Partial<Message>) => void
   deleteMessagesFrom: (messageId: string) => Promise<void>
 }
@@ -42,7 +47,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     try {
       const conversation = await window.redLedger.createConversation(partial || {})
       set((state) => ({
-        conversations: [conversation, ...state.conversations],
+        conversations: sortConversationsByUpdatedAt([conversation, ...state.conversations]),
         activeConversationId: conversation.id,
         messages: []
       }))
@@ -97,9 +102,12 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     if (!window.redLedger) return
     try {
       await window.redLedger.updateConversation(id, { title })
+      const updatedAt = Date.now()
       set((state) => ({
-        conversations: state.conversations.map((c) =>
-          c.id === id ? { ...c, title } : c
+        conversations: sortConversationsByUpdatedAt(
+          state.conversations.map((c) =>
+            c.id === id ? { ...c, title, updatedAt } : c
+          )
         )
       }))
     } catch (err) {
@@ -134,8 +142,14 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     if (!window.redLedger) throw new Error('API not available')
     try {
       const message = await window.redLedger.createMessage(data)
+      const updatedAt = message.createdAt
       set((state) => ({
-        messages: [...state.messages, message]
+        messages: [...state.messages, message],
+        conversations: sortConversationsByUpdatedAt(
+          state.conversations.map((c) =>
+            c.id === data.conversationId ? { ...c, updatedAt } : c
+          )
+        )
       }))
 
       // Auto-title: when the first user message is added to a "New Chat",
@@ -160,6 +174,16 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       notify({ type: 'error', message: formatError(err) })
       throw err
     }
+  },
+
+  touchConversation: (id, updatedAt = Date.now()) => {
+    set((state) => ({
+      conversations: sortConversationsByUpdatedAt(
+        state.conversations.map((c) =>
+          c.id === id ? { ...c, updatedAt } : c
+        )
+      )
+    }))
   },
 
   // Local-only update (for streaming content accumulation)
