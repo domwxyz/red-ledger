@@ -3,7 +3,8 @@ import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/vi
 import { EditorState } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
-import { redLedgerTheme } from './redLedgerTheme'
+import { useSettingsStore } from '@/store'
+import { createRedLedgerTheme } from './redLedgerTheme'
 
 interface EditorProps {
   value: string
@@ -15,13 +16,14 @@ interface EditorProps {
 export function Editor({ value, onChange, placeholder, readOnly = false }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
+  const isDarkMode = useSettingsStore((s) => s.settings?.darkMode ?? false)
 
   // Create editor on mount
   useEffect(() => {
     if (!containerRef.current) return
 
     const extensions = [
-      redLedgerTheme,
+      createRedLedgerTheme(isDarkMode),
       markdown(),
       history(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
@@ -61,7 +63,7 @@ export function Editor({ value, onChange, placeholder, readOnly = false }: Edito
     }
     // Only run on mount/unmount — value syncing handled separately below
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readOnly])
+  }, [readOnly, isDarkMode])
 
   // Sync external value changes into the editor (avoid cursor jumps during typing)
   useEffect(() => {

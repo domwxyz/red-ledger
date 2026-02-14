@@ -10,6 +10,7 @@ describe('sanitizeSettings', () => {
     expect(result.temperature).toBe(1.0)
     expect(result.maxTokens).toBe(8192)
     expect(result.strictMode).toBe(false)
+    expect(result.darkMode).toBe(false)
     expect(result.defaultModel).toBe('z-ai/glm-5')
     expect(result.providers.openrouter.selectedModel).toBe('z-ai/glm-5')
   })
@@ -33,6 +34,15 @@ describe('sanitizeSettings', () => {
 
   it('defaults temperatureEnabled for invalid input', () => {
     expect(sanitizeSettings({ temperatureEnabled: 'yes' as any } as any).temperatureEnabled).toBe(false)
+  })
+
+  it('preserves valid darkMode value', () => {
+    expect(sanitizeSettings({ darkMode: true } as any).darkMode).toBe(true)
+    expect(sanitizeSettings({ darkMode: false } as any).darkMode).toBe(false)
+  })
+
+  it('defaults darkMode for invalid input', () => {
+    expect(sanitizeSettings({ darkMode: 'yes' as any } as any).darkMode).toBe(false)
   })
 
   it('clamps temperature to 0–2 range', () => {

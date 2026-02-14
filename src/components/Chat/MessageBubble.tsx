@@ -190,7 +190,7 @@ export function MessageBubble({
                     <span>{a.name}</span>
                     <span className="text-[10px] opacity-50 group-open/attach:rotate-90 transition-transform">&#9654;</span>
                   </summary>
-                  <pre className="whitespace-pre-wrap font-mono text-xs mt-1 p-2 bg-black/5 rounded max-h-[200px] overflow-y-auto m-0">{a.content}</pre>
+                  <pre className="whitespace-pre-wrap font-mono text-xs mt-1 p-2 bg-base-200/60 rounded max-h-[200px] overflow-y-auto m-0">{a.content}</pre>
                 </details>
               ))}
             </div>
@@ -208,7 +208,7 @@ export function MessageBubble({
   return (
     <div className="message-row group flex flex-col gap-2 items-start">
       {hasThinking && (
-        <details className="max-w-[85%] border border-weathered rounded-card bg-white overflow-hidden group/thinking">
+        <details className="max-w-[85%] border border-weathered rounded-card bg-base-100 overflow-hidden group/thinking">
           <summary className="inline-flex items-center gap-1.5 cursor-pointer px-3 py-2 text-xs text-soft-charcoal/70 hover:text-soft-charcoal select-none list-none [&::-webkit-details-marker]:hidden">
             <span className="font-medium uppercase tracking-wide">Reasoning Trace</span>
             {isReceivingThinking && (

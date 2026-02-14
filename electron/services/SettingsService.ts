@@ -47,6 +47,7 @@ const DEFAULT_SETTINGS: Settings = {
   temperature: 1.0,
   maxTokens: 8192,
   strictMode: false,
+  darkMode: false,
   tavilyApiKey: '',
   serpApiKey: '',
   lastWorkspacePath: null
@@ -189,6 +190,7 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     temperature,
     maxTokens,
     strictMode: typeof s.strictMode === 'boolean' ? s.strictMode : DEFAULT_SETTINGS.strictMode,
+    darkMode: typeof s.darkMode === 'boolean' ? s.darkMode : DEFAULT_SETTINGS.darkMode,
     tavilyApiKey: typeof s.tavilyApiKey === 'string' ? s.tavilyApiKey : DEFAULT_SETTINGS.tavilyApiKey,
     serpApiKey: typeof s.serpApiKey === 'string' ? s.serpApiKey : DEFAULT_SETTINGS.serpApiKey,
     lastWorkspacePath: typeof s.lastWorkspacePath === 'string'

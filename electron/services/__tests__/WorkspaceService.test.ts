@@ -18,6 +18,7 @@ const BASE_SETTINGS: Settings = {
   temperature: 0.7,
   maxTokens: 4096,
   strictMode: false,
+  darkMode: false,
   tavilyApiKey: '',
   serpApiKey: '',
   lastWorkspacePath: null

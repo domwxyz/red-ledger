@@ -83,7 +83,7 @@ export function ChatInput({ streaming }: ChatInputProps) {
           {attachments.map((a, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-weathered rounded text-xs text-soft-charcoal"
+              className="inline-flex items-center gap-1 px-2 py-0.5 bg-base-100 border border-weathered rounded text-xs text-soft-charcoal"
             >
               <Paperclip size={10} className="shrink-0 text-soft-charcoal/40" />
               <span className="truncate max-w-[150px]">{a.name}</span>
@@ -116,7 +116,7 @@ export function ChatInput({ streaming }: ChatInputProps) {
           }
           disabled={isDisabled || isStreaming}
           rows={1}
-          className="textarea textarea-bordered flex-1 bg-white resize-none text-sm min-h-[40px] max-h-[200px] leading-relaxed focus:outline-none focus:border-weathered"
+          className="textarea textarea-bordered flex-1 bg-base-100 resize-none text-sm min-h-[40px] max-h-[200px] leading-relaxed focus:outline-none focus:border-weathered"
         />
 
         {isStreaming ? (

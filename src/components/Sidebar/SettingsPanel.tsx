@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Moon, Sun } from 'lucide-react'
 import { useSettingsStore } from '@/store'
 import type { ProviderName } from '@/types'
 
@@ -202,7 +203,8 @@ export function SettingsPanel() {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-3 space-y-3">
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
       {/* Provider Selection */}
       <div>
         <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
@@ -219,7 +221,7 @@ export function SettingsPanel() {
               ...(remembered ? { defaultModel: remembered } : {})
             })
           }}
-          className="select select-sm select-bordered w-full bg-white"
+          className="select select-sm select-bordered w-full bg-base-100"
         >
           {PROVIDERS.map((p) => (
             <option key={p.id} value={p.id}>{p.label}</option>
@@ -249,7 +251,7 @@ export function SettingsPanel() {
               })
             }
             placeholder="sk-..."
-            className="input input-sm input-bordered w-full bg-white"
+            className="input input-sm input-bordered w-full bg-base-100"
           />
         </div>
       )}
@@ -274,7 +276,7 @@ export function SettingsPanel() {
                 }
               })
             }
-            className="select select-sm select-bordered w-full bg-white"
+            className="select select-sm select-bordered w-full bg-base-100"
           >
             <option value="openai">OpenAI Endpoints</option>
             <option value="lmstudio">LM Studio Endpoints</option>
@@ -323,7 +325,7 @@ export function SettingsPanel() {
               }
             })
           }
-          className="input input-sm input-bordered w-full bg-white text-xs"
+          className="input input-sm input-bordered w-full bg-base-100 text-xs"
         />
       </div>
 
@@ -353,13 +355,13 @@ export function SettingsPanel() {
             value={activeProviderModel}
             onChange={(e) => saveActiveProviderModel(e.target.value)}
             placeholder="z-ai/glm-5"
-            className="input input-sm input-bordered w-full bg-white"
+            className="input input-sm input-bordered w-full bg-base-100"
           />
         ) : (
           <select
             value={activeProviderModel}
             onChange={(e) => saveActiveProviderModel(e.target.value)}
-            className="select select-sm select-bordered w-full bg-white"
+            className="select select-sm select-bordered w-full bg-base-100"
           >
             {!models.includes(activeProviderModel) && activeProviderModel && (
               <option value={activeProviderModel}>{activeProviderModel}</option>
@@ -417,7 +419,7 @@ export function SettingsPanel() {
           onChange={(e) =>
             saveSettings({ ...settings, maxTokens: parseInt(e.target.value) || 4096 })
           }
-          className="input input-sm input-bordered w-full bg-white"
+          className="input input-sm input-bordered w-full bg-base-100"
         />
       </div>
 
@@ -446,7 +448,7 @@ export function SettingsPanel() {
           value={settings.tavilyApiKey}
           onChange={(e) => saveSettings({ ...settings, tavilyApiKey: e.target.value })}
           placeholder="tvly-..."
-          className="input input-sm input-bordered w-full bg-white"
+          className="input input-sm input-bordered w-full bg-base-100"
         />
       </div>
 
@@ -459,8 +461,38 @@ export function SettingsPanel() {
           type="password"
           value={settings.serpApiKey}
           onChange={(e) => saveSettings({ ...settings, serpApiKey: e.target.value })}
-          className="input input-sm input-bordered w-full bg-white"
+          className="input input-sm input-bordered w-full bg-base-100"
         />
+      </div>
+
+      </div>
+
+      <div className="mt-auto border-t border-weathered/80 bg-base-200/35 p-3">
+        <div className="settings-darkmode-card">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-soft-charcoal">
+                Dark mode
+              </div>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-label="Dark mode"
+              aria-checked={settings.darkMode}
+              data-checked={settings.darkMode}
+              onClick={() => saveSettings({ ...settings, darkMode: !settings.darkMode })}
+              className="settings-darkmode-switch"
+            >
+              <Sun size={12} className="settings-darkmode-sun" />
+              <Moon size={12} className="settings-darkmode-moon" />
+              <span className="settings-darkmode-switch-orb">
+                {settings.darkMode ? <Moon size={12} /> : <Sun size={12} />}
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

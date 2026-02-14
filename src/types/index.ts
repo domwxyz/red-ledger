@@ -21,6 +21,7 @@ export interface Settings {
   temperature: number     // 0.0–2.0
   maxTokens: number       // 1–128000
   strictMode: boolean
+  darkMode: boolean
   tavilyApiKey: string
   serpApiKey: string
   lastWorkspacePath: string | null

@@ -7,6 +7,7 @@ import { notify } from './lib/notify'
 export default function App() {
   const loadSettings = useSettingsStore((s) => s.loadSettings)
   const settings = useSettingsStore((s) => s.settings)
+  const activeTheme = settings?.darkMode ? 'red-ledger-dark' : 'red-ledger'
 
   useEffect(() => {
     loadSettings()
@@ -40,7 +41,7 @@ export default function App() {
   }, [settings?.lastWorkspacePath])
 
   return (
-    <div className="h-full w-full" data-theme="red-ledger">
+    <div className="h-full w-full" data-theme={activeTheme}>
       <Layout />
       <Toaster />
     </div>

@@ -101,7 +101,7 @@ export function ConversationList({ compactNewChatButton = false }: ConversationL
                         if (e.key === 'Enter') handleConfirmRename()
                         if (e.key === 'Escape') handleCancelRename()
                       }}
-                      className="input input-xs input-bordered flex-1 bg-white"
+                      className="input input-xs input-bordered flex-1 bg-base-100"
                       autoFocus
                       onClick={(e) => e.stopPropagation()}
                     />

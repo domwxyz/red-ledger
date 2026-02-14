@@ -7,13 +7,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        'rca-red': '#DB1E1E',
-        'soft-charcoal': '#2C2C2C',
-        'paper': '#FDFCF8',
-        'paper-stack': '#F4F1EA',
-        'manila': '#F5F1E8',
-        'weathered': '#E5E0D5',
-        'leather': '#8B4513'
+        'rca-red': 'rgb(var(--color-rca-red) / <alpha-value>)',
+        'soft-charcoal': 'rgb(var(--color-soft-charcoal) / <alpha-value>)',
+        'paper': 'rgb(var(--color-paper) / <alpha-value>)',
+        'paper-stack': 'rgb(var(--color-paper-stack) / <alpha-value>)',
+        'manila': 'rgb(var(--color-manila) / <alpha-value>)',
+        'weathered': 'rgb(var(--color-weathered) / <alpha-value>)',
+        'leather': 'rgb(var(--color-leather) / <alpha-value>)'
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -57,6 +57,35 @@ export default {
           'warning-content': '#FDFCF8',
           'error': '#A92525',
           'error-content': '#FDFCF8',
+          '--rounded-btn': '0.5rem',
+          '--rounded-box': '0.75rem',
+          '--animation-btn': '200ms',
+          '--animation-input': '200ms',
+          '--btn-focus-scale': '0.98'
+        }
+      },
+      {
+        'red-ledger-dark': {
+          'primary': '#E24848',
+          'primary-content': '#FFF4F4',
+          'secondary': '#D8CAC0',
+          'secondary-content': '#1F1A19',
+          'accent': '#B77E4F',
+          'accent-content': '#FFF6ED',
+          'neutral': '#2A2321',
+          'neutral-content': '#F2E5DB',
+          'base-100': '#1F1A19',
+          'base-200': '#272120',
+          'base-300': '#352E2C',
+          'base-content': '#F1E7DE',
+          'info': '#7AA6B9',
+          'info-content': '#111111',
+          'success': '#78A489',
+          'success-content': '#111111',
+          'warning': '#D39A63',
+          'warning-content': '#1C140F',
+          'error': '#EC7272',
+          'error-content': '#160B0B',
           '--rounded-btn': '0.5rem',
           '--rounded-box': '0.75rem',
           '--animation-btn': '200ms',

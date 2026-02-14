@@ -54,13 +54,21 @@ app.on('second-instance', () => {
 // ─── Window Creation ─────────────────────────────────────────────────────────
 
 function createWindow(): void {
+  const prefersDarkMode = (() => {
+    try {
+      return getCurrentSettings().darkMode
+    } catch {
+      return false
+    }
+  })()
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 900,
     minHeight: 600,
     title: 'Red Ledger',
-    backgroundColor: '#FDFCF8',
+    backgroundColor: prefersDarkMode ? '#1F1A19' : '#FDFCF8',
     icon: join(__dirname, '../../build/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
