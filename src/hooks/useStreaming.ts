@@ -6,6 +6,7 @@ import type { StreamChunk, ToolCall, LLMRequest, Message, Attachment } from '@/t
 
 const STREAM_THROTTLE_MS = 50
 const THINKING_ACTIVE_WINDOW_MS = 1500
+const THINKING_BLOCK_SEPARATOR = '\n\n---\n\n'
 
 function buildAttachmentBlocks(attachments: Attachment[]): string {
   return attachments.map(
@@ -41,6 +42,7 @@ export function useStreaming() {
   const contentRef = useRef('')
   const thinkingRef = useRef('')
   const toolCallsRef = useRef<ToolCall[]>([])
+  const lastStreamChunkTypeRef = useRef<StreamChunk['type'] | null>(null)
   const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const thinkingActivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -147,6 +149,7 @@ export function useStreaming() {
     contentRef.current = ''
     thinkingRef.current = ''
     toolCallsRef.current = []
+    lastStreamChunkTypeRef.current = null
   }, [clearThinkingActivity, finalizeTempMessage])
 
   const sendMessage = useCallback(async (content: string, attachments?: Attachment[]) => {
@@ -162,6 +165,7 @@ export function useStreaming() {
     contentRef.current = ''
     thinkingRef.current = ''
     toolCallsRef.current = []
+    lastStreamChunkTypeRef.current = null
 
     try {
       const configuredProvider = currentSettings.activeProvider
@@ -268,15 +272,27 @@ export function useStreaming() {
       const cleanup = window.redLedger.sendMessage(request, (chunk: StreamChunk) => {
         switch (chunk.type) {
           case 'thinking': {
-            thinkingRef.current += chunk.content || ''
+            const incomingThinking = chunk.content || ''
+            const isResumedThinking = Boolean(
+              incomingThinking &&
+              thinkingRef.current &&
+              lastStreamChunkTypeRef.current &&
+              lastStreamChunkTypeRef.current !== 'thinking'
+            )
+            if (isResumedThinking) {
+              thinkingRef.current += THINKING_BLOCK_SEPARATOR
+            }
+            thinkingRef.current += incomingThinking
             markThinkingActivity()
             scheduleFlush()
+            lastStreamChunkTypeRef.current = 'thinking'
             break
           }
 
           case 'text': {
             contentRef.current += chunk.content || ''
             scheduleFlush()
+            lastStreamChunkTypeRef.current = 'text'
             break
           }
 
@@ -287,6 +303,7 @@ export function useStreaming() {
               toolCallsRef.current = [...toolCallsRef.current, stamped]
               flushToStore()
             }
+            lastStreamChunkTypeRef.current = 'tool_call'
             break
           }
 
@@ -299,6 +316,7 @@ export function useStreaming() {
               )
               flushToStore()
             }
+            lastStreamChunkTypeRef.current = 'tool_result'
             break
           }
 
@@ -308,6 +326,7 @@ export function useStreaming() {
               type: 'error',
               message: chunk.error || 'Streaming error'
             })
+            lastStreamChunkTypeRef.current = 'error'
             break
           }
 
@@ -326,6 +345,7 @@ export function useStreaming() {
             contentRef.current = ''
             thinkingRef.current = ''
             toolCallsRef.current = []
+            lastStreamChunkTypeRef.current = null
             cleanupRef.current = null
             break
           }
@@ -345,6 +365,7 @@ export function useStreaming() {
       }
       setIsStreaming(false)
       clearThinkingActivity()
+      lastStreamChunkTypeRef.current = null
       notify({
         type: 'error',
         message: formatError(err)

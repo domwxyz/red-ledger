@@ -30,6 +30,8 @@ type Segment =
   | { kind: 'text'; text: string; html: string }
   | { kind: 'tool'; toolCall: ToolCall }
 
+const COPY_MESSAGE_SEPARATOR = '\n\n'
+
 /**
  * Build an interleaved list of text segments and tool call cards.
  *
@@ -141,12 +143,29 @@ export function MessageBubble({
     return parseLegacyAttachmentBlocks(message.content)
   }, [message.attachments, message.content, message.role])
 
+  const segments = useMemo(
+    () => buildSegments(message.content, toolCalls),
+    [message.content, toolCalls]
+  )
+
+  const assistantCopyText = useMemo(() => {
+    if (message.role !== 'assistant') return message.content
+
+    const textSegments = segments
+      .filter((seg): seg is Extract<Segment, { kind: 'text' }> => seg.kind === 'text')
+      .map((seg) => seg.text.trim())
+      .filter(Boolean)
+
+    if (textSegments.length <= 1) return message.content
+    return textSegments.join(COPY_MESSAGE_SEPARATOR)
+  }, [message.content, message.role, segments])
+
   // ─── Actions ───────────────────────────────────────────────────────────────
 
-  // Copy action: for user messages copy the user text only; for assistant copy raw content
+  // Copy action: for user messages copy the user text only; for assistant separate text blocks.
   const copyText = message.role === 'user'
     ? (userParts?.text || '')
-    : message.content
+    : assistantCopyText
   const copyAction = useCopyAction(copyText)
 
   const actions = useMemo<MessageAction[]>(() => {
@@ -160,11 +179,6 @@ export function MessageBubble({
   }, [copyAction, onRetry, isStreaming, message.role])
 
   // ─── Assistant Message ─────────────────────────────────────────────────────
-
-  const segments = useMemo(
-    () => buildSegments(message.content, toolCalls),
-    [message.content, toolCalls]
-  )
 
   const align = message.role === 'user' ? 'right' : 'left'
   const hasThinking = Boolean(message.thinking?.trim())
