@@ -31,6 +31,18 @@ const api: RedLedgerAPI = {
   loadDefaultContext: (type: 'system' | 'user' | 'org') =>
     ipcRenderer.invoke('context:loadDefault', type),
 
+  listContextProfiles: () =>
+    ipcRenderer.invoke('context:listProfiles'),
+
+  createContextProfile: (name: string) =>
+    ipcRenderer.invoke('context:createProfile', name),
+
+  setActiveContextProfile: (profileId: string) =>
+    ipcRenderer.invoke('context:setActiveProfile', profileId),
+
+  deleteContextProfile: (profileId: string) =>
+    ipcRenderer.invoke('context:deleteProfile', profileId),
+
   // ─── Conversations ───────────────────────────────────────────────────────
 
   listConversations: () =>

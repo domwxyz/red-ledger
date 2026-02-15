@@ -109,6 +109,13 @@ export interface Attachment {
   content: string
 }
 
+// --- Context Profiles ---
+
+export interface ContextProfile {
+  id: string
+  name: string
+}
+
 // ─── Errors ──────────────────────────────────────────────────────────────────
 
 export type ErrorCode =
@@ -145,6 +152,10 @@ export interface RedLedgerAPI {
   loadContext(type: 'system' | 'user' | 'org'): Promise<string>
   saveContext(type: 'system' | 'user' | 'org', content: string): Promise<void>
   loadDefaultContext(type: 'system' | 'user' | 'org'): Promise<string>
+  listContextProfiles(): Promise<{ profiles: ContextProfile[]; activeProfileId: string }>
+  createContextProfile(name: string): Promise<{ profiles: ContextProfile[]; activeProfileId: string }>
+  setActiveContextProfile(profileId: string): Promise<{ profiles: ContextProfile[]; activeProfileId: string }>
+  deleteContextProfile(profileId: string): Promise<{ profiles: ContextProfile[]; activeProfileId: string }>
 
   // Conversations
   listConversations(): Promise<Conversation[]>

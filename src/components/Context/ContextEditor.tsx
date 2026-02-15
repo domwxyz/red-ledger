@@ -7,12 +7,13 @@ import { cn } from '@/lib/utils'
 const CONTEXT_HEADER_WRAP_BREAKPOINT = 225
 
 interface ContextEditorProps {
+  profileId: string
   type: 'system' | 'user' | 'org'
   title: string
   description: string
 }
 
-export function ContextEditor({ type, title, description }: ContextEditorProps) {
+export function ContextEditor({ profileId, type, title, description }: ContextEditorProps) {
   const [content, setContent] = useState('')
   const [savedSnapshot, setSavedSnapshot] = useState('')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle')
@@ -46,7 +47,7 @@ export function ContextEditor({ type, title, description }: ContextEditorProps) 
     return () => observer.disconnect()
   }, [])
 
-  // Load content on mount
+  // Load content on mount and whenever the active profile changes.
   useEffect(() => {
     if (!window.redLedger) return
     window.redLedger.loadContext(type).then((text) => {
@@ -55,7 +56,7 @@ export function ContextEditor({ type, title, description }: ContextEditorProps) 
     }).catch(() => {
       // Context unavailable — leave content empty
     })
-  }, [type])
+  }, [profileId, type])
 
   // Save handler
   const handleSave = useCallback(async () => {

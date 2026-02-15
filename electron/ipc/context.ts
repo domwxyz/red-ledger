@@ -34,4 +34,23 @@ export function registerContextHandlers(contextDir: string, bundledDir: string):
     assertContextType(type)
     return service.loadDefault(type)
   })
+
+  handleIpc('context:listProfiles', () => {
+    return service.listProfiles()
+  })
+
+  handleIpc('context:createProfile', (_e, name) => {
+    assertString(name, 'name')
+    return service.createProfile(name)
+  })
+
+  handleIpc('context:setActiveProfile', (_e, profileId) => {
+    assertString(profileId, 'profileId')
+    return service.setActiveProfile(profileId)
+  })
+
+  handleIpc('context:deleteProfile', (_e, profileId) => {
+    assertString(profileId, 'profileId')
+    return service.deleteProfile(profileId)
+  })
 }

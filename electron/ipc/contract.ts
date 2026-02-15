@@ -7,12 +7,16 @@
  */
 import type {
   Conversation, Message, Settings, FileNode, SearchResult,
-  Attachment, LLMRequest, StreamChunk
+  Attachment, LLMRequest, StreamChunk, ContextProfile
 } from '../../src/types'
 
 // ─── Helper types used only by the contract ─────────────────────────────────
 
 export type ContextType = 'system' | 'user' | 'org'
+export interface ContextProfileState {
+  profiles: ContextProfile[]
+  activeProfileId: string
+}
 
 export type CreateMessageData = Omit<Message, 'id' | 'createdAt' | 'timestamp'>
 
@@ -49,6 +53,10 @@ export interface IpcContract {
   'context:load':               { params: [type: ContextType];                         result: string }
   'context:save':               { params: [type: ContextType, content: string];        result: void }
   'context:loadDefault':        { params: [type: ContextType];                         result: string }
+  'context:listProfiles':       { params: [];                                           result: ContextProfileState }
+  'context:createProfile':      { params: [name: string];                               result: ContextProfileState }
+  'context:setActiveProfile':   { params: [profileId: string];                          result: ContextProfileState }
+  'context:deleteProfile':      { params: [profileId: string];                          result: ContextProfileState }
 
   // Settings
   'settings:load':              { params: [];                                          result: Settings }

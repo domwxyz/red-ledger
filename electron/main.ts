@@ -49,8 +49,8 @@ function setApplicationMenu(): void {
 
   const gettingStartedDetail = [
     '1. Choose your LLM provider in Settings.',
-    '2. Enter your API key if available. \(OpenRouter recommended\)',
-    '3. Enter your Search API key if using web search. \(Tavily recommended\)',
+    '2. Enter your API key if available. (OpenRouter recommended)',
+    '3. Enter your Search API key if using web search. (Tavily recommended)',
     '4. Open Workspace and choose your active folder.',
     '5. Set the System Prompt in the Context section.'
   ].join('\n')
