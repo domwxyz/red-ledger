@@ -1,0 +1,48 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Validate
+        run: |
+          npm run typecheck
+          npm run test
+
+      - name: Rebuild native deps for Electron
+        run: npm run rebuild
+
+      - name: Build app
+        run: npm run build
+
+      - name: Build Windows artifacts (NSIS + portable)
+        run: npx electron-builder --win nsis portable --publish never
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: red-ledger-windows
+          path: |
+            dist/*.exe
+          if-no-files-found: error
+          retention-days: 7
