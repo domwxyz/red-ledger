@@ -408,9 +408,18 @@ export function SettingsPanel() {
 
       {/* Max Tokens */}
       <div>
-        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
-          Max Tokens
-        </label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
+            Max Tokens
+          </label>
+          <span
+            className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+            title="Sets the assistant response output length."
+            aria-label="Max Tokens help"
+          >
+            <CircleHelp size={12} />
+          </span>
+        </div>
         <input
           type="number"
           min={1}
