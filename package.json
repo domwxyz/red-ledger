@@ -3,14 +3,18 @@
   "version": "1.0.0",
   "description": "Context Aware Command Center",
   "license": "MIT",
-  "author": "Daniella Cusanelli",
+  "author": {
+    "name": "Daniella Cusanelli",
+    "email": "domwxyz@tutamail.com"
+  },
   "type": "module",
   "main": "./out/main/main.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "rebuild": "npx @electron/rebuild -f -w better-sqlite3",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "dist:linux": "electron-builder --linux AppImage deb --publish never",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint src electron",
     "test": "vitest run",
@@ -42,6 +46,7 @@
     "daisyui": "^4.12.22",
     "dompurify": "^3.2.3",
     "electron": "^33.3.1",
+    "electron-builder": "26.7.0",
     "electron-vite": "^2.3.0",
     "eslint": "^9.39.2",
     "eslint-plugin-react-hooks": "^5.2.0",
@@ -87,7 +92,8 @@
       "target": [
         "AppImage",
         "deb"
-      ]
+      ],
+      "maintainer": "Red Ledger Maintainers <domwxyz@tutamail.com>"
     },
     "nsis": {
       "oneClick": false,
