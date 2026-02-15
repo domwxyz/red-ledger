@@ -9,7 +9,7 @@ interface ExtractedLink {
 
 /**
  * Domain service for web search.
- * Supports Tavily (preferred) and SerpAPI (fallback), plus direct Wikipedia search.
+ * Supports Tavily (preferred) and SerpAPI (fallback), plus org-scoped and Wikipedia search.
  * No Electron imports.
  */
 export class SearchService {
@@ -42,6 +42,12 @@ export class SearchService {
     throw new Error(
       'No search API key configured. Add a Tavily or SerpAPI key in Settings.'
     )
+  }
+
+  async orgSearch(query: string, numResults: number = 5): Promise<SearchResult[]> {
+    const settings = this.getSettings()
+    const scopedQuery = this.applySiteOperator(query, settings.orgSite)
+    return this.search(scopedQuery, numResults)
   }
 
   async searchWikipedia(query: string, numResults: number = 5): Promise<SearchResult[]> {
@@ -281,6 +287,27 @@ export class SearchService {
     } catch {
       return null
     }
+  }
+
+  private applySiteOperator(query: string, orgSite: string | undefined): string {
+    const trimmedQuery = query.trim()
+    const normalizedSite = this.normalizeOrgSite(orgSite)
+    if (!normalizedSite || /\bsite:/i.test(trimmedQuery)) {
+      return trimmedQuery
+    }
+    return `${trimmedQuery} site:${normalizedSite}`
+  }
+
+  private normalizeOrgSite(orgSite: string | undefined): string | null {
+    if (!orgSite) return null
+    const trimmed = orgSite.trim()
+    if (!trimmed) return null
+
+    const withoutPrefix = trimmed.replace(/^site:/i, '').trim()
+    if (!withoutPrefix) return null
+
+    const [firstToken] = withoutPrefix.split(/\s+/)
+    return firstToken || null
   }
 
   private async searchTavily(

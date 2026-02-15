@@ -148,4 +148,61 @@ describe('SearchService.search', () => {
       { title: 'Result Two', url: 'https://example.com/two', snippet: 'Snippet two' }
     ])
   })
+
+  it('appends org site operator for orgSearch queries', async () => {
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        results: [
+          { title: 'Org Result', url: 'https://docs.example.com/one', content: 'Scoped snippet' }
+        ]
+      }
+    })
+
+    const service = new SearchService(() => ({
+      tavilyApiKey: 'tvly-test',
+      serpApiKey: '',
+      orgSite: 'docs.example.com'
+    } as never))
+
+    const results = await service.orgSearch('release notes', 1)
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      'https://api.tavily.com/search',
+      expect.objectContaining({
+        api_key: 'tvly-test',
+        query: 'release notes site:docs.example.com',
+        max_results: 1
+      }),
+      { timeout: 15_000 }
+    )
+    expect(results).toEqual([
+      { title: 'Org Result', url: 'https://docs.example.com/one', snippet: 'Scoped snippet' }
+    ])
+  })
+
+  it('does not duplicate site operator when orgSearch query already includes one', async () => {
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        results: [
+          { title: 'Org Result', url: 'https://example.com/one', content: 'Scoped snippet' }
+        ]
+      }
+    })
+
+    const service = new SearchService(() => ({
+      tavilyApiKey: 'tvly-test',
+      serpApiKey: '',
+      orgSite: 'docs.example.com'
+    } as never))
+
+    await service.orgSearch('release notes site:example.com', 1)
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      'https://api.tavily.com/search',
+      expect.objectContaining({
+        query: 'release notes site:example.com'
+      }),
+      { timeout: 15_000 }
+    )
+  })
 })

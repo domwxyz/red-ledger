@@ -24,6 +24,7 @@ export interface Settings {
   darkMode: boolean
   tavilyApiKey: string
   serpApiKey: string
+  orgSite: string
   lastWorkspacePath: string | null
 }
 

@@ -21,6 +21,7 @@ const BASE_SETTINGS: Settings = {
   darkMode: false,
   tavilyApiKey: '',
   serpApiKey: '',
+  orgSite: '',
   lastWorkspacePath: null
 }
 

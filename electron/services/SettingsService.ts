@@ -50,6 +50,7 @@ const DEFAULT_SETTINGS: Settings = {
   darkMode: false,
   tavilyApiKey: '',
   serpApiKey: '',
+  orgSite: '',
   lastWorkspacePath: null
 }
 
@@ -193,6 +194,7 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     darkMode: typeof s.darkMode === 'boolean' ? s.darkMode : DEFAULT_SETTINGS.darkMode,
     tavilyApiKey: typeof s.tavilyApiKey === 'string' ? s.tavilyApiKey : DEFAULT_SETTINGS.tavilyApiKey,
     serpApiKey: typeof s.serpApiKey === 'string' ? s.serpApiKey : DEFAULT_SETTINGS.serpApiKey,
+    orgSite: typeof s.orgSite === 'string' ? s.orgSite : DEFAULT_SETTINGS.orgSite,
     lastWorkspacePath: typeof s.lastWorkspacePath === 'string'
       ? s.lastWorkspacePath
       : null

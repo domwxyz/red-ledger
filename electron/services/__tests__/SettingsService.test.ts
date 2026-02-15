@@ -11,6 +11,7 @@ describe('sanitizeSettings', () => {
     expect(result.maxTokens).toBe(8192)
     expect(result.strictMode).toBe(false)
     expect(result.darkMode).toBe(false)
+    expect(result.orgSite).toBe('')
     expect(result.defaultModel).toBe('z-ai/glm-5')
     expect(result.providers.openrouter.selectedModel).toBe('z-ai/glm-5')
   })
@@ -178,5 +179,14 @@ describe('sanitizeSettings', () => {
   it('nulls lastWorkspacePath for non-string', () => {
     expect(sanitizeSettings({ lastWorkspacePath: 42 } as any).lastWorkspacePath).toBeNull()
     expect(sanitizeSettings({ lastWorkspacePath: undefined } as any).lastWorkspacePath).toBeNull()
+  })
+
+  it('preserves orgSite when string', () => {
+    const result = sanitizeSettings({ orgSite: 'news.example.com' } as any)
+    expect(result.orgSite).toBe('news.example.com')
+  })
+
+  it('defaults orgSite for non-string input', () => {
+    expect(sanitizeSettings({ orgSite: 42 as any } as any).orgSite).toBe('')
   })
 })

@@ -9,6 +9,7 @@ import './writeFile'
 import './appendFile'
 import './listFiles'
 import './webSearch'
+import './orgSearch'
 import './wikiSearch'
 import './fetchUrl'
 

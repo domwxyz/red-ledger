@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Moon, Sun } from 'lucide-react'
+import { CircleHelp, Moon, Sun } from 'lucide-react'
 import { useSettingsStore } from '@/store'
 import type { ProviderName } from '@/types'
 
@@ -461,6 +461,29 @@ export function SettingsPanel() {
           type="password"
           value={settings.serpApiKey}
           onChange={(e) => saveSettings({ ...settings, serpApiKey: e.target.value })}
+          className="input input-sm input-bordered w-full bg-base-100"
+        />
+      </div>
+
+      {/* Org Site */}
+      <div>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
+            Org Site
+          </label>
+          <span
+            className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+            title="Optional. Allows search through a specific source by applying site:example.com."
+            aria-label="Org Site help"
+          >
+            <CircleHelp size={12} />
+          </span>
+        </div>
+        <input
+          type="text"
+          value={settings.orgSite}
+          onChange={(e) => saveSettings({ ...settings, orgSite: e.target.value })}
+          placeholder="example.com"
           className="input input-sm input-bordered w-full bg-base-100"
         />
       </div>
