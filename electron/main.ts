@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, Menu } from 'electron'
+import type { MenuItemConstructorOptions } from 'electron'
 import { join, basename, extname } from 'path'
 import { readFileSync } from 'fs'
 import { extractPdfTextWithFallback } from './services/PdfAttachmentService'
@@ -14,6 +15,82 @@ import { assertObject } from './ipc/validate'
 
 let mainWindow: BrowserWindow | null = null
 let ipcHandlersRegistered = false
+
+const APP_NAME = app.getName().split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+const ABOUT_AUTHOR = 'D. Cusanelli'
+const ABOUT_DESCRIPTION = 'Context Aware Command Center'
+
+async function showHelpPopup(
+  title: string,
+  message: string,
+  detail: string
+): Promise<void> {
+  if (!mainWindow) return
+
+  await dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    buttons: ['Close'],
+    defaultId: 0,
+    noLink: true,
+    title,
+    message,
+    detail
+  })
+}
+
+function setApplicationMenu(): void {
+  const aboutDetail = [
+    `Name: ${APP_NAME}`,
+    `Version: ${app.getVersion()}`,
+    `Author: ${ABOUT_AUTHOR}`,
+    `Description: ${ABOUT_DESCRIPTION}`
+  ].join('\n')
+
+  const gettingStartedDetail = [
+    '1. Choose your LLM provider in Settings.',
+    '2. Enter your API key if available. \(OpenRouter recommended\)',
+    '3. Enter your Search API key if using web search. \(Tavily recommended\)',
+    '4. Open Workspace and choose your active folder.',
+    '5. Set the System Prompt in the Context section.'
+  ].join('\n')
+
+  const menuTemplate: MenuItemConstructorOptions[] = [
+    ...(process.platform === 'darwin'
+      ? [{ role: 'appMenu' as const }]
+      : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About',
+          click: () => {
+            void showHelpPopup(
+              `About ${APP_NAME}`,
+              APP_NAME,
+              aboutDetail
+            )
+          }
+        },
+        {
+          label: 'Getting Started',
+          click: () => {
+            void showHelpPopup(
+              'Getting Started',
+              `How to use ${APP_NAME}`,
+              gettingStartedDetail
+            )
+          }
+        }
+      ]
+    }
+  ]
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
+}
 
 interface ParsedAttachment {
   name: string
@@ -273,6 +350,7 @@ app.whenReady().then(() => {
   registerIpcHandlers()
 
   createWindow()
+  setApplicationMenu()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
