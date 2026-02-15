@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 
 const SIDEBAR_TAB_TEXT_BREAKPOINT = 260
 const SIDEBAR_NEW_CHAT_TEXT_BREAKPOINT = 165
+const SIDEBAR_OPEN_FOLDER_TEXT_BREAKPOINT = SIDEBAR_NEW_CHAT_TEXT_BREAKPOINT + 20
 
 const TABS = [
   { id: 'conversations' as const, icon: MessageSquare, label: 'Chats' },
@@ -48,6 +49,7 @@ export function Sidebar() {
 
   const hideTabText = sidebarWidth !== null && sidebarWidth < SIDEBAR_TAB_TEXT_BREAKPOINT
   const hideNewChatText = sidebarWidth !== null && sidebarWidth < SIDEBAR_NEW_CHAT_TEXT_BREAKPOINT
+  const hideOpenFolderText = sidebarWidth !== null && sidebarWidth < SIDEBAR_OPEN_FOLDER_TEXT_BREAKPOINT
 
   return (
     <div ref={sidebarRef} className="h-full flex flex-col bg-paper-stack">
@@ -79,7 +81,7 @@ export function Sidebar() {
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden bg-paper mx-2 mb-2 border-x border-b border-weathered rounded-b-lg">
         {sidebarTab === 'conversations' && <ConversationList compactNewChatButton={hideNewChatText} />}
-        {sidebarTab === 'workspace' && <WorkspaceTree />}
+        {sidebarTab === 'workspace' && <WorkspaceTree compactOpenFolderButton={hideOpenFolderText} />}
         {sidebarTab === 'settings' && <SettingsPanel />}
       </div>
     </div>

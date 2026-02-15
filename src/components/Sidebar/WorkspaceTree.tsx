@@ -5,7 +5,11 @@ import { FileTree } from '../FileTree/FileTree'
 import { FileViewer } from './FileViewer'
 import type { FileNode } from '@/types'
 
-export function WorkspaceTree() {
+interface WorkspaceTreeProps {
+  compactOpenFolderButton?: boolean
+}
+
+export function WorkspaceTree({ compactOpenFolderButton = false }: WorkspaceTreeProps) {
   const workspacePath = useUIStore((s) => s.workspacePath)
   const setWorkspacePath = useUIStore((s) => s.setWorkspacePath)
   const selectedFilePath = useUIStore((s) => s.selectedFilePath)
@@ -43,13 +47,16 @@ export function WorkspaceTree() {
   return (
     <div className="h-full flex flex-col">
       <div className="p-3 pb-2 space-y-1.5">
-        <button
-          onClick={handleOpenFolder}
-          className="btn btn-sm btn-outline w-full gap-2"
-        >
-          <FolderOpen size={14} />
-          Open Folder
-        </button>
+        <div className="flex justify-center">
+          <button
+            onClick={handleOpenFolder}
+            className={`btn btn-sm btn-outline w-full max-w-[300px] whitespace-nowrap ${compactOpenFolderButton ? 'px-0' : 'gap-2'}`}
+            title="Open Folder"
+          >
+            <FolderOpen size={14} />
+            {!compactOpenFolderButton && 'Open Folder'}
+          </button>
+        </div>
 
         {workspacePath && (
           <div className="text-[11px] text-soft-charcoal/40 truncate px-0.5" title={workspacePath}>
