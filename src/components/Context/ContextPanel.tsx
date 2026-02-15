@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, Plus, Trash2, X } from 'lucide-react'
 import type { ContextProfile } from '@/types'
 import { formatError } from '@/lib/errors'
@@ -21,12 +21,18 @@ const FALLBACK_PROFILE_STATE: ContextProfileState = {
   activeProfileId: 'default'
 }
 
+const HIDE_PROFILE_LABEL_BREAKPOINT = 310
+const COMPACT_PROFILE_SELECT_BREAKPOINT = 280
+const EXTRA_COMPACT_PROFILE_SELECT_BREAKPOINT = 245
+
 export function ContextPanel() {
   const [profileState, setProfileState] = useState<ContextProfileState>(FALLBACK_PROFILE_STATE)
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(true)
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
   const [isCreatingProfile, setIsCreatingProfile] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
+  const headerRef = useRef<HTMLDivElement>(null)
+  const [headerWidth, setHeaderWidth] = useState<number | null>(null)
 
   const applyProfileState = useCallback((next: ContextProfileState) => {
     setProfileState({
@@ -120,6 +126,33 @@ export function ContextPanel() {
   const profileControlsDisabled = isLoadingProfiles || isUpdatingProfile
   const activeProfile = profileState.profiles.find((profile) => profile.id === profileState.activeProfileId) || null
   const canDeleteActiveProfile = activeProfile?.id !== 'default'
+  const showProfileLabel = headerWidth === null || headerWidth >= HIDE_PROFILE_LABEL_BREAKPOINT
+
+  let selectWidthClass = 'w-[130px]'
+  if (headerWidth !== null && headerWidth < EXTRA_COMPACT_PROFILE_SELECT_BREAKPOINT) {
+    selectWidthClass = 'w-[88px]'
+  } else if (headerWidth !== null && headerWidth < COMPACT_PROFILE_SELECT_BREAKPOINT) {
+    selectWidthClass = 'w-[102px]'
+  }
+
+  useEffect(() => {
+    const node = headerRef.current
+    if (!node) return
+
+    const update = () => setHeaderWidth(node.clientWidth)
+    update()
+
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (typeof width === 'number') {
+        setHeaderWidth(width)
+      }
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
   const handleDeleteActiveProfile = useCallback(async () => {
     if (!window.redLedger || !activeProfile) return
@@ -155,17 +188,19 @@ export function ContextPanel() {
 
   return (
     <div className="h-full flex flex-col bg-paper">
-      <div className="px-4 py-2.5 border-b border-weathered bg-paper-stack/50 flex items-center gap-2 min-h-[42px]">
-        <h2 className="text-xs font-semibold text-soft-charcoal/70 uppercase tracking-wider">Context</h2>
-        <div className="ml-auto flex items-center gap-1.5 min-w-0">
-          <span className="text-[10px] font-semibold text-soft-charcoal/45 uppercase tracking-wider">
-            Profile
-          </span>
+      <div ref={headerRef} className="px-4 py-2.5 border-b border-weathered bg-paper-stack/50 flex items-center gap-2 min-h-[42px] overflow-hidden">
+        <h2 className="text-xs font-semibold text-soft-charcoal/70 uppercase tracking-wider shrink-0">Context</h2>
+        <div className="ml-auto flex items-center gap-1.5 min-w-0 shrink-0">
+          {showProfileLabel && (
+            <span className="text-[10px] font-semibold text-soft-charcoal/45 uppercase tracking-wider shrink-0">
+              Profile
+            </span>
+          )}
           <select
             value={profileState.activeProfileId}
             disabled={profileControlsDisabled}
             onChange={(e) => handleProfileChange(e.target.value)}
-            className="select select-xs select-bordered w-[130px] bg-base-100 text-xs"
+            className={`select select-xs select-bordered ${selectWidthClass} bg-base-100 text-xs shrink-0`}
             title="Select context profile"
           >
             {profileState.profiles.map((profile) => (
