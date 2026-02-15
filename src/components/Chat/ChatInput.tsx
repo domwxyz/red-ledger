@@ -133,7 +133,7 @@ export function ChatInput({ streaming }: ChatInputProps) {
               onClick={handleAttach}
               disabled={isDisabled}
               className="btn btn-ghost btn-sm h-10 w-10 min-w-[40px] p-0 shrink-0 text-soft-charcoal/50 hover:text-soft-charcoal"
-              title="Attach .txt, .md, or .pdf files"
+              title="Attach .txt, .md, .pdf, .png, .jpg/.jpeg, .webp, or .gif files"
             >
               <Paperclip size={16} />
             </button>

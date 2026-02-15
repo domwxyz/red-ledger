@@ -1,7 +1,15 @@
-import type { LLMMessage, AbortHandle } from '../lib/providers/base'
+import type { LLMMessage, AbortHandle, LLMMessageContent } from '../lib/providers/base'
 import { createProvider } from '../lib/providers/registry'
 import { getToolDefinitions } from '../lib/tools/registry'
-import type { LLMRequest, StreamChunk, ToolCall, ProviderName, Settings } from '../../src/types'
+import type {
+  LLMRequest,
+  StreamChunk,
+  ToolCall,
+  ProviderName,
+  Settings,
+  Attachment,
+  ImageAttachment
+} from '../../src/types'
 
 // Side-effect imports: each provider self-registers when loaded
 import '../lib/providers/openai'
@@ -38,6 +46,87 @@ export class LlmService {
     this.getSystemPrompt = deps.getSystemPrompt
   }
 
+  private supportsVisionParts(provider: ProviderName): boolean {
+    return provider === 'openai' || provider === 'openrouter'
+  }
+
+  private isImageAttachment(attachment: Attachment): attachment is ImageAttachment {
+    if (attachment.kind !== 'image') return false
+    if (typeof attachment.mimeType !== 'string' || attachment.mimeType.length === 0) return false
+    if (typeof attachment.dataUrl !== 'string' || attachment.dataUrl.length === 0) return false
+    return true
+  }
+
+  private buildTextAttachmentBlocks(attachments: Attachment[]): string {
+    const textAttachments = attachments.filter((attachment) => !this.isImageAttachment(attachment))
+    if (textAttachments.length === 0) return ''
+
+    return textAttachments
+      .map((attachment) => `\n\n---\n**Attached file: ${attachment.name}**\n\`\`\`\n${attachment.content}\n\`\`\``)
+      .join('')
+  }
+
+  private buildImageFallbackBlocks(images: ImageAttachment[]): string {
+    if (images.length === 0) return ''
+
+    return images
+      .map((image) => `\n\n---\n**Attached image: ${image.name}**\n[Image omitted for this provider]`)
+      .join('')
+  }
+
+  private withTimestampTag(content: LLMMessageContent, timestamp: string): LLMMessageContent {
+    const timestampTag = `[system: msg_timestamp=${timestamp}]\n\n`
+
+    if (typeof content === 'string') {
+      return timestampTag + content
+    }
+
+    const parts = [...content]
+    if (parts.length > 0 && parts[0].type === 'text') {
+      parts[0] = {
+        type: 'text',
+        text: timestampTag + parts[0].text
+      }
+      return parts
+    }
+
+    return [{ type: 'text', text: timestampTag }, ...parts]
+  }
+
+  private buildUserMessageContent(
+    content: string,
+    attachments: Attachment[] | undefined,
+    provider: ProviderName
+  ): LLMMessageContent {
+    if (!attachments || attachments.length === 0) {
+      return content
+    }
+
+    const promptText = content.trim().length > 0 ? content : '(see attached files)'
+    const textWithFileBlocks = promptText + this.buildTextAttachmentBlocks(attachments)
+    const images = attachments.filter((attachment): attachment is ImageAttachment =>
+      this.isImageAttachment(attachment)
+    )
+
+    if (images.length === 0) {
+      return textWithFileBlocks
+    }
+
+    if (!this.supportsVisionParts(provider)) {
+      return textWithFileBlocks + this.buildImageFallbackBlocks(images)
+    }
+
+    return [
+      { type: 'text', text: textWithFileBlocks },
+      ...images.map((image) => ({
+        type: 'image_url' as const,
+        image_url: {
+          url: image.dataUrl
+        }
+      }))
+    ]
+  }
+
   /**
    * Main streaming orchestration loop.
    * Handles multi-round tool use: when the LLM makes tool calls, we execute
@@ -63,12 +152,16 @@ export class LlmService {
     // Append conversation messages from the request, injecting system timestamps
     // into user messages so the LLM always has accurate real-time context
     for (const msg of request.messages) {
-      if (msg.role === 'user' && msg.timestamp) {
-        const timestampTag = `[system: msg_timestamp=${msg.timestamp}]\n\n`
-        messages.push({ role: msg.role, content: timestampTag + msg.content })
-      } else {
-        messages.push({ role: msg.role, content: msg.content })
+      if (msg.role === 'user') {
+        const content = this.buildUserMessageContent(msg.content, msg.attachments, request.provider)
+        const contentWithTimestamp = msg.timestamp
+          ? this.withTimestampTag(content, msg.timestamp)
+          : content
+        messages.push({ role: msg.role, content: contentWithTimestamp })
+        continue
       }
+
+      messages.push({ role: msg.role, content: msg.content })
     }
 
     const tools = getToolDefinitions()

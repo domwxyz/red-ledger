@@ -1,5 +1,10 @@
 import axios from 'axios'
-import { BaseLLMProvider, type ProviderSendOptions, type AbortHandle } from './base'
+import {
+  BaseLLMProvider,
+  type ProviderSendOptions,
+  type AbortHandle,
+  type LLMMessageContent
+} from './base'
 import { registerProvider } from './registry'
 
 function extractThinking(value: unknown): string {
@@ -17,6 +22,30 @@ function extractThinking(value: unknown): string {
   }
 
   return ''
+}
+
+function toPlainTextContent(content: LLMMessageContent | null): string {
+  if (typeof content === 'string') return content
+  if (!content) return ''
+
+  const textParts: string[] = []
+  let imageCount = 0
+
+  for (const part of content) {
+    if (part.type === 'text') {
+      if (part.text.trim().length > 0) {
+        textParts.push(part.text)
+      }
+      continue
+    }
+    imageCount++
+  }
+
+  if (imageCount > 0) {
+    textParts.push(`[${imageCount} image attachment${imageCount === 1 ? '' : 's'} omitted for this provider]`)
+  }
+
+  return textParts.join('\n\n')
 }
 
 /**
@@ -61,9 +90,9 @@ export class OllamaProvider extends BaseLLMProvider {
     const ollamaMessages = messages.map((m) => {
       if (m.role === 'tool') {
         // Ollama wants tool responses as role: 'tool' with content
-        return { role: 'tool' as const, content: m.content || '' }
+        return { role: 'tool' as const, content: toPlainTextContent(m.content) }
       }
-      return { role: m.role, content: m.content || '' }
+      return { role: m.role, content: toPlainTextContent(m.content) }
     })
 
     const body: Record<string, unknown> = {

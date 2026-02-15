@@ -69,11 +69,18 @@ export interface ToolCall {
 
 export interface LLMRequest {
   conversationId: string
-  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string; timestamp: string }>
+  messages: LLMRequestMessage[]
   model: string
   provider: ProviderName
   temperature?: number
   maxTokens?: number
+}
+
+export interface LLMRequestMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  timestamp: string
+  attachments?: Attachment[]
 }
 
 // ─── Stream Chunks ───────────────────────────────────────────────────────────
@@ -104,10 +111,26 @@ export interface SearchResult {
 
 // ─── Attachments ─────────────────────────────────────────────────────────
 
-export interface Attachment {
+export interface TextAttachment {
+  kind?: 'text'
   name: string
   content: string
 }
+
+export type ImageAttachmentMimeType =
+  | 'image/png'
+  | 'image/jpeg'
+  | 'image/webp'
+  | 'image/gif'
+
+export interface ImageAttachment {
+  kind: 'image'
+  name: string
+  mimeType: ImageAttachmentMimeType
+  dataUrl: string
+}
+
+export type Attachment = TextAttachment | ImageAttachment
 
 // --- Context Profiles ---
 

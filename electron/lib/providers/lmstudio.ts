@@ -1,5 +1,10 @@
 import axios from 'axios'
-import { BaseLLMProvider, type ProviderSendOptions, type AbortHandle } from './base'
+import {
+  BaseLLMProvider,
+  type ProviderSendOptions,
+  type AbortHandle,
+  type LLMMessageContent
+} from './base'
 import { OpenAIProvider } from './openai'
 import { registerProvider } from './registry'
 import type { LMStudioCompatibility, ProviderSettings } from '../../../src/types'
@@ -27,6 +32,30 @@ function extractModelId(model: unknown): string | null {
   const record = model as Record<string, unknown>
   const id = record.id ?? record.model_id ?? record.model ?? record.name
   return typeof id === 'string' && id.trim().length > 0 ? id : null
+}
+
+function toPlainTextContent(content: LLMMessageContent | null): string {
+  if (typeof content === 'string') return content
+  if (!content) return ''
+
+  const textParts: string[] = []
+  let imageCount = 0
+
+  for (const part of content) {
+    if (part.type === 'text') {
+      if (part.text.trim().length > 0) {
+        textParts.push(part.text)
+      }
+      continue
+    }
+    imageCount++
+  }
+
+  if (imageCount > 0) {
+    textParts.push(`[${imageCount} image attachment${imageCount === 1 ? '' : 's'} omitted for this provider]`)
+  }
+
+  return textParts.join('\n\n')
 }
 
 class LMStudioNativeProvider extends BaseLLMProvider {
@@ -81,7 +110,7 @@ class LMStudioNativeProvider extends BaseLLMProvider {
       model,
       messages: messages.map((m) => ({
         role: m.role,
-        content: m.content ?? ''
+        content: toPlainTextContent(m.content)
       })),
       stream: true,
       temperature: temperature ?? 0.7

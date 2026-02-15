@@ -35,6 +35,10 @@ type Segment =
 
 const COPY_MESSAGE_SEPARATOR = '\n\n'
 
+function isImageAttachment(attachment: Attachment): attachment is Extract<Attachment, { kind: 'image' }> {
+  return attachment.kind === 'image'
+}
+
 /**
  * Build an interleaved list of text segments and tool call cards.
  *
@@ -209,7 +213,18 @@ export function MessageBubble({
                     <span>{a.name}</span>
                     <span className="text-[10px] opacity-50 group-open/attach:rotate-90 transition-transform">&#9654;</span>
                   </summary>
-                  <pre className="whitespace-pre-wrap font-mono text-xs mt-1 p-2 bg-base-200/60 rounded max-h-[200px] overflow-y-auto m-0">{a.content}</pre>
+                  {isImageAttachment(a) ? (
+                    <div className="mt-1 p-2 bg-base-200/60 rounded max-w-[320px]">
+                      <img
+                        src={a.dataUrl}
+                        alt={a.name}
+                        className="block max-w-full max-h-[260px] rounded border border-weathered object-contain bg-base-100"
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : (
+                    <pre className="whitespace-pre-wrap font-mono text-xs mt-1 p-2 bg-base-200/60 rounded max-h-[200px] overflow-y-auto m-0">{a.content}</pre>
+                  )}
                 </details>
               ))}
             </div>

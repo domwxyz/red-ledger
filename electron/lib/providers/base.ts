@@ -25,7 +25,7 @@ export interface ToolDefinition {
  */
 export interface LLMMessage {
   role: 'user' | 'assistant' | 'system' | 'tool'
-  content: string | null
+  content: LLMMessageContent | null
   tool_calls?: Array<{
     id: string
     type: 'function'
@@ -36,6 +36,22 @@ export interface LLMMessage {
   }>
   tool_call_id?: string
 }
+
+export interface LLMTextContentPart {
+  type: 'text'
+  text: string
+}
+
+export interface LLMImageUrlContentPart {
+  type: 'image_url'
+  image_url: {
+    url: string
+  }
+}
+
+export type LLMMessageContent =
+  | string
+  | Array<LLMTextContentPart | LLMImageUrlContentPart>
 
 export interface ProviderSendOptions {
   messages: LLMMessage[]

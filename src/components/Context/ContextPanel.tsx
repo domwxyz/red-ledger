@@ -188,7 +188,7 @@ export function ContextPanel() {
 
   return (
     <div className="h-full flex flex-col bg-paper">
-      <div ref={headerRef} className="px-4 py-2.5 border-b border-weathered bg-paper-stack/50 flex items-center gap-2 min-h-[42px] overflow-hidden">
+      <div ref={headerRef} className="h-[42px] px-4 border-b border-weathered bg-paper-stack/50 flex items-center gap-2 overflow-hidden">
         <h2 className="text-xs font-semibold text-soft-charcoal/70 uppercase tracking-wider shrink-0">Context</h2>
         <div className="ml-auto flex items-center gap-1.5 min-w-0 shrink-0">
           {showProfileLabel && (

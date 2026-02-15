@@ -6,15 +6,7 @@ import type {
   LMStudioCompatibility
 } from '../../src/types'
 
-const DEFAULT_FALLBACK_MODEL = 'z-ai/glm-5'
-
-function normalizeLegacyModel(model: string): string {
-  const trimmed = model.trim()
-  if (trimmed.toLowerCase().includes('jamba')) {
-    return DEFAULT_FALLBACK_MODEL
-  }
-  return model
-}
+const DEFAULT_FALLBACK_MODEL = 'moonshotai/kimi-k2.5'
 
 const DEFAULT_SETTINGS: Settings = {
   activeProvider: 'openrouter',
@@ -134,7 +126,7 @@ function sanitizeProviderSettings(value: unknown, defaults: ProviderSettings): P
     models,
     compatibility: sanitizeCompatibility(raw.compatibility, defaults.compatibility),
     selectedModel: typeof raw.selectedModel === 'string'
-      ? normalizeLegacyModel(raw.selectedModel)
+      ? raw.selectedModel
       : defaults.selectedModel
   }
 }
@@ -155,7 +147,7 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     : DEFAULT_SETTINGS.activeProvider
 
   const defaultModel = typeof s.defaultModel === 'string' && s.defaultModel.trim().length > 0
-    ? normalizeLegacyModel(s.defaultModel)
+    ? s.defaultModel
     : DEFAULT_SETTINGS.defaultModel
 
   const activeRawSelectedModel = typeof s.providers?.[activeProvider]?.selectedModel === 'string'

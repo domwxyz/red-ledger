@@ -19,8 +19,8 @@ const PROVIDERS_ALLOW_BLANK_MODEL = new Set<ProviderName>([
 ])
 
 const PROVIDER_PREFERRED_MODELS: Partial<Record<ProviderName, string>> = {
-  openai: 'z-ai/glm-5',
-  openrouter: 'z-ai/glm-5'
+  openai: 'moonshotai/kimi-k2.5',
+  openrouter: 'moonshotai/kimi-k2.5'
 }
 
 const PROVIDER_DEFAULT_BASE_URLS: Record<ProviderName, string> = {
@@ -354,7 +354,7 @@ export function SettingsPanel() {
             type="text"
             value={activeProviderModel}
             onChange={(e) => saveActiveProviderModel(e.target.value)}
-            placeholder="z-ai/glm-5"
+            placeholder="moonshotai/kimi-k2.5"
             className="input input-sm input-bordered w-full bg-base-100"
           />
         ) : (

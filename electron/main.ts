@@ -3,6 +3,7 @@ import type { MenuItemConstructorOptions } from 'electron'
 import { join, basename, extname } from 'path'
 import { readFileSync } from 'fs'
 import { extractPdfTextWithFallback } from './services/PdfAttachmentService'
+import type { Attachment, ImageAttachmentMimeType } from '../src/types'
 import { resolveSettingsPath, resolveDbPath } from './services/SettingsService'
 import { registerDbHandlers, getConversationService } from './ipc/db'
 import { registerContextHandlers, getContextService } from './ipc/context'
@@ -93,23 +94,43 @@ function setApplicationMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
 }
 
-interface ParsedAttachment {
-  name: string
-  content: string
+type ParsedAttachment = Attachment
+
+const IMAGE_MIME_BY_EXTENSION: Record<string, ImageAttachmentMimeType> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif'
 }
 
 async function parseAttachmentFile(filePath: string): Promise<ParsedAttachment> {
   const fileName = basename(filePath)
   const extension = extname(filePath).toLowerCase()
+  const imageMime = IMAGE_MIME_BY_EXTENSION[extension]
+
+  if (imageMime) {
+    const imageBuffer = readFileSync(filePath)
+    const base64Image = imageBuffer.toString('base64')
+
+    return {
+      kind: 'image',
+      name: fileName,
+      mimeType: imageMime,
+      dataUrl: `data:${imageMime};base64,${base64Image}`
+    }
+  }
 
   if (extension === '.pdf') {
     return {
+      kind: 'text',
       name: fileName,
       content: await extractPdfTextWithFallback(filePath)
     }
   }
 
   return {
+    kind: 'text',
     name: fileName,
     content: readFileSync(filePath, 'utf-8')
   }
@@ -316,7 +337,10 @@ function registerIpcHandlers(): void {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Attach Files',
       filters: [
-        { name: 'Text, Markdown, PDF', extensions: ['txt', 'md', 'pdf'] }
+        {
+          name: 'Text, Markdown, PDF, Images',
+          extensions: ['txt', 'md', 'pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif']
+        }
       ],
       properties: ['openFile', 'multiSelections']
     })

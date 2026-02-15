@@ -8,21 +8,6 @@ const STREAM_THROTTLE_MS = 50
 const THINKING_ACTIVE_WINDOW_MS = 1500
 const THINKING_BLOCK_SEPARATOR = '\n\n---\n\n'
 
-function buildAttachmentBlocks(attachments: Attachment[]): string {
-  return attachments.map(
-    (a) => `\n\n---\n**Attached file: ${a.name}**\n\`\`\`\n${a.content}\n\`\`\``
-  ).join('')
-}
-
-function buildUserMessageForLlm(content: string, attachments?: Attachment[]): string {
-  if (!attachments || attachments.length === 0) {
-    return content
-  }
-
-  const textPart = content.trim().length > 0 ? content : '(see attached files)'
-  return textPart + buildAttachmentBlocks(attachments)
-}
-
 /**
  * React hook that manages the LLM streaming lifecycle.
  *
@@ -217,10 +202,11 @@ export function useStreaming() {
       // 2. Build the message history for the LLM request
       const messages = useConversationStore.getState().messages.map((m) => ({
         role: m.role,
-        content: m.role === 'user'
-          ? buildUserMessageForLlm(m.content, m.attachments)
-          : m.content,
-        timestamp: m.timestamp
+        content: m.content,
+        timestamp: m.timestamp,
+        ...(m.role === 'user' && m.attachments && m.attachments.length > 0
+          ? { attachments: m.attachments }
+          : {})
       }))
 
       const request: LLMRequest = {

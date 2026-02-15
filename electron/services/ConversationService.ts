@@ -1,6 +1,44 @@
 import { v4 as uuidv4 } from 'uuid'
 import type Database from 'better-sqlite3'
-import type { Attachment, Conversation, Message } from '../../src/types'
+import type { Attachment, Conversation, Message, ImageAttachmentMimeType } from '../../src/types'
+
+const SUPPORTED_IMAGE_MIME_TYPES = new Set<ImageAttachmentMimeType>([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif'
+])
+
+function parseAttachment(value: unknown): Attachment | null {
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  if (typeof record.name !== 'string') return null
+
+  if (record.kind === 'image') {
+    if (typeof record.mimeType !== 'string' || !SUPPORTED_IMAGE_MIME_TYPES.has(record.mimeType as ImageAttachmentMimeType)) {
+      return null
+    }
+    if (typeof record.dataUrl !== 'string' || record.dataUrl.length === 0) {
+      return null
+    }
+    const mimeType = record.mimeType as ImageAttachmentMimeType
+    return {
+      kind: 'image',
+      name: record.name,
+      mimeType,
+      dataUrl: record.dataUrl
+    }
+  }
+
+  if (typeof record.content !== 'string') return null
+
+  return {
+    kind: 'text',
+    name: record.name,
+    content: record.content
+  }
+}
 
 /**
  * Domain service for conversations and messages.
@@ -80,12 +118,9 @@ export class ConversationService {
       try {
         const parsed = JSON.parse(row.attachments) as unknown
         if (Array.isArray(parsed)) {
-          attachments = parsed.filter((item): item is Attachment => (
-            !!item
-            && typeof item === 'object'
-            && typeof (item as Attachment).name === 'string'
-            && typeof (item as Attachment).content === 'string'
-          ))
+          attachments = parsed
+            .map((item) => parseAttachment(item))
+            .filter((item): item is Attachment => item !== null)
         }
       } catch {
         attachments = undefined

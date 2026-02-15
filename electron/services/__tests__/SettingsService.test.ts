@@ -12,8 +12,8 @@ describe('sanitizeSettings', () => {
     expect(result.strictMode).toBe(false)
     expect(result.darkMode).toBe(false)
     expect(result.orgSite).toBe('')
-    expect(result.defaultModel).toBe('z-ai/glm-5')
-    expect(result.providers.openrouter.selectedModel).toBe('z-ai/glm-5')
+    expect(result.defaultModel).toBe('moonshotai/kimi-k2.5')
+    expect(result.providers.openrouter.selectedModel).toBe('moonshotai/kimi-k2.5')
   })
 
   it('returns defaults for empty object', () => {
@@ -25,7 +25,7 @@ describe('sanitizeSettings', () => {
     expect(result.providers.ollama.baseUrl).toBe('http://localhost:11434')
     expect(result.providers.lmstudio.baseUrl).toBe('http://localhost:1234')
     expect(result.providers.lmstudio.compatibility).toBe('openai')
-    expect(result.providers.openrouter.selectedModel).toBe('z-ai/glm-5')
+    expect(result.providers.openrouter.selectedModel).toBe('moonshotai/kimi-k2.5')
   })
 
   it('preserves valid temperatureEnabled value', () => {
@@ -151,24 +151,6 @@ describe('sanitizeSettings', () => {
 
     expect(result.providers.openai.selectedModel).toBe('')
     expect(result.providers.openrouter.selectedModel).toBe('')
-  })
-
-  it('migrates legacy jamba models to glm-5', () => {
-    const result = sanitizeSettings({
-      activeProvider: 'openai',
-      defaultModel: 'ai21/jamba-large-1.7',
-      providers: {
-        openai: {
-          apiKey: '',
-          baseUrl: 'https://api.openai.com/v1',
-          models: [],
-          selectedModel: 'ai21/jamba-large-1.7'
-        }
-      }
-    } as any)
-
-    expect(result.defaultModel).toBe('z-ai/glm-5')
-    expect(result.providers.openai.selectedModel).toBe('z-ai/glm-5')
   })
 
   it('preserves lastWorkspacePath when string', () => {
