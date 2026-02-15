@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Copy, Check, RotateCcw, GitFork } from 'lucide-react'
+import { Copy, Check, RotateCcw, GitFork, Pencil } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 // ─── Action Descriptor ───────────────────────────────────────────────────────
@@ -46,6 +46,16 @@ export function retryAction(onRetry: () => void): MessageAction {
     icon: RotateCcw,
     label: 'Retry',
     onClick: onRetry
+  }
+}
+
+/** Edit action — opens inline edit for the latest user prompt. */
+export function editAction(onEdit: () => void): MessageAction {
+  return {
+    key: 'edit',
+    icon: Pencil,
+    label: 'Edit',
+    onClick: onEdit
   }
 }
 

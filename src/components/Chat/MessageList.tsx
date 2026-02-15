@@ -9,9 +9,10 @@ interface MessageListProps {
   isStreaming: boolean
   isReceivingThinking: boolean
   onRetry: () => void
+  onEdit: (content: string) => Promise<void>
 }
 
-export function MessageList({ isStreaming, isReceivingThinking, onRetry }: MessageListProps) {
+export function MessageList({ isStreaming, isReceivingThinking, onRetry, onEdit }: MessageListProps) {
   const messages = useConversationStore((s) => s.messages)
   const isLoadingMessages = useConversationStore((s) => s.isLoadingMessages)
   const forkConversationFromMessage = useConversationStore((s) => s.forkConversationFromMessage)
@@ -89,6 +90,7 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry }: Messa
             isStreaming={messageIsStreaming}
             isReceivingThinking={isReceivingThinking && messageIsStreaming}
             onRetry={canRetry && idx === lastUserIdx ? onRetry : undefined}
+            onEdit={canRetry && idx === lastUserIdx ? onEdit : undefined}
             onFork={message.role === 'assistant' && !isStreaming
               ? () => { void handleFork(message.id).catch(() => {}) }
               : undefined}

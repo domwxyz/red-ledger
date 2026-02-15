@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { Paperclip } from 'lucide-react'
@@ -7,6 +7,7 @@ import { ToolCallCard } from './ToolCallCard'
 import {
   MessageActionsBar,
   useCopyAction,
+  editAction,
   forkAction,
   retryAction,
   type MessageAction
@@ -24,6 +25,8 @@ interface MessageBubbleProps {
   isReceivingThinking?: boolean
   /** If provided, a retry button is shown in the action bar. */
   onRetry?: () => void
+  /** If provided on latest user message, shows an edit button. */
+  onEdit?: (content: string) => Promise<void> | void
   /** If provided on assistant messages, shows a fork button. */
   onFork?: () => void
 }
@@ -131,8 +134,14 @@ export function MessageBubble({
   isStreaming,
   isReceivingThinking,
   onRetry,
+  onEdit,
   onFork
 }: MessageBubbleProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editingText, setEditingText] = useState('')
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false)
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null)
+
   // Parse tool calls from JSON string if present
   const toolCalls = useMemo<ToolCall[]>(() => {
     if (!message.toolCalls) return []
@@ -176,16 +185,76 @@ export function MessageBubble({
     : assistantCopyText
   const copyAction = useCopyAction(copyText)
 
+  const openEditMode = useCallback(() => {
+    if (!onEdit || message.role !== 'user') return
+    setEditingText(userParts?.text || '')
+    setIsEditing(true)
+  }, [onEdit, message.role, userParts])
+
+  const syncEditTextareaHeight = useCallback(() => {
+    const textarea = editTextareaRef.current
+    if (!textarea) return
+    textarea.style.height = 'auto'
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`
+  }, [])
+
+  const closeEditMode = useCallback(() => {
+    if (isSubmittingEdit) return
+    setIsEditing(false)
+    setEditingText(userParts?.text || '')
+  }, [isSubmittingEdit, userParts])
+
+  const handleEditInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEditingText(e.target.value)
+    const textarea = editTextareaRef.current
+    if (!textarea) return
+    textarea.style.height = 'auto'
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`
+  }, [])
+
+  const handleEditSubmit = useCallback(async () => {
+    if (!onEdit || message.role !== 'user' || isSubmittingEdit) return
+
+    const nextContent = editingText.trim()
+    const hasAttachments = Boolean(userParts?.attachments.length)
+    if (!nextContent && !hasAttachments) return
+
+    setIsSubmittingEdit(true)
+    try {
+      await onEdit(nextContent)
+      setIsEditing(false)
+    } finally {
+      setIsSubmittingEdit(false)
+    }
+  }, [onEdit, message.role, isSubmittingEdit, editingText, userParts])
+
+  const handleEditKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey) return
+    e.preventDefault()
+    void handleEditSubmit()
+  }, [handleEditSubmit])
+
+  useEffect(() => {
+    if (!isEditing) return
+    syncEditTextareaHeight()
+    const textarea = editTextareaRef.current
+    if (!textarea) return
+    textarea.focus()
+    const cursor = textarea.value.length
+    textarea.setSelectionRange(cursor, cursor)
+  }, [isEditing, syncEditTextareaHeight])
+
   const actions = useMemo<MessageAction[]>(() => {
     // Don't show actions during streaming or for system messages
-    if (isStreaming || message.role === 'system') return []
+    if (isStreaming || message.role === 'system' || isEditing) return []
 
     const list: MessageAction[] = []
     if (onRetry) list.push(retryAction(onRetry))
+    if (message.role === 'user' && onEdit) list.push(editAction(openEditMode))
     if (message.role === 'assistant' && onFork) list.push(forkAction(onFork))
     list.push(copyAction)
     return list
-  }, [copyAction, onRetry, onFork, isStreaming, message.role])
+  }, [copyAction, onRetry, onEdit, onFork, isStreaming, isEditing, message.role, openEditMode])
 
   // ─── Assistant Message ─────────────────────────────────────────────────────
 
@@ -201,8 +270,40 @@ export function MessageBubble({
     return (
       <div className="message-row group flex flex-col items-end">
         <div className="message-bubble user">
-          {text && text !== '(see attached files)' && (
-            <pre className="whitespace-pre-wrap font-sans text-sm m-0">{text}</pre>
+          {isEditing ? (
+            <>
+              <textarea
+                ref={editTextareaRef}
+                value={editingText}
+                onChange={handleEditInput}
+                onKeyDown={handleEditKeyDown}
+                disabled={isSubmittingEdit}
+                rows={3}
+                className="textarea textarea-bordered w-full bg-base-100/70 text-sm resize-none min-h-[84px] max-h-[220px] leading-relaxed focus:outline-none focus:border-weathered"
+              />
+              <div className="mt-2 flex items-center justify-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={closeEditMode}
+                  disabled={isSubmittingEdit}
+                  className="btn btn-ghost btn-xs h-7 min-h-[28px]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { void handleEditSubmit() }}
+                  disabled={isSubmittingEdit || (!editingText.trim() && attachments.length === 0)}
+                  className="btn btn-primary btn-xs h-7 min-h-[28px]"
+                >
+                  {isSubmittingEdit ? 'Resending...' : 'Resend'}
+                </button>
+              </div>
+            </>
+          ) : (
+            text && text !== '(see attached files)' && (
+              <pre className="whitespace-pre-wrap font-sans text-sm m-0">{text}</pre>
+            )
           )}
           {attachments.length > 0 && (
             <div className={`flex flex-col gap-1 ${text && text !== '(see attached files)' ? 'mt-2' : ''}`}>

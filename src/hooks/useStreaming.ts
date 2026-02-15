@@ -8,6 +8,15 @@ const STREAM_THROTTLE_MS = 50
 const THINKING_ACTIVE_WINDOW_MS = 1500
 const THINKING_BLOCK_SEPARATOR = '\n\n---\n\n'
 
+function findLastUserMessage(messages: Message[]): Message | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') {
+      return messages[i]
+    }
+  }
+  return undefined
+}
+
 /**
  * React hook that manages the LLM streaming lifecycle.
  *
@@ -381,16 +390,7 @@ export function useStreaming() {
     if (isStreaming) return
 
     const store = useConversationStore.getState()
-    const { messages } = store
-
-    // Find the last user message
-    let lastUserMsg: Message | undefined
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'user') {
-        lastUserMsg = messages[i]
-        break
-      }
-    }
+    const lastUserMsg = findLastUserMessage(store.messages)
     if (!lastUserMsg) return
 
     // Delete the user message and everything after it from DB + store
@@ -399,11 +399,27 @@ export function useStreaming() {
     await sendMessage(lastUserMsg.content, lastUserMsg.attachments)
   }, [isStreaming, sendMessage])
 
+  const editLastUserMessage = useCallback(async (content: string) => {
+    if (isStreaming) return
+
+    const store = useConversationStore.getState()
+    const lastUserMsg = findLastUserMessage(store.messages)
+    if (!lastUserMsg) return
+
+    const nextContent = content.trim()
+    const hasAttachments = Boolean(lastUserMsg.attachments && lastUserMsg.attachments.length > 0)
+    if (!nextContent && !hasAttachments) return
+
+    await store.deleteMessagesFrom(lastUserMsg.id)
+    await sendMessage(nextContent, lastUserMsg.attachments)
+  }, [isStreaming, sendMessage])
+
   return {
     isStreaming,
     isReceivingThinking,
     sendMessage,
     cancel,
-    retry
+    retry,
+    editLastUserMessage
   }
 }

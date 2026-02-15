@@ -24,6 +24,7 @@ export function ChatPanel() {
               isStreaming={streaming.isStreaming}
               isReceivingThinking={streaming.isReceivingThinking}
               onRetry={streaming.retry}
+              onEdit={streaming.editLastUserMessage}
             />
           </div>
 
