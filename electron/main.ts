@@ -17,6 +17,7 @@ let mainWindow: BrowserWindow | null = null
 let ipcHandlersRegistered = false
 
 const APP_NAME = app.getName().split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+const APP_WINDOW_TITLE = `${APP_NAME} ${app.getVersion()}`
 const ABOUT_AUTHOR = 'D. Cusanelli'
 const ABOUT_DESCRIPTION = 'Context Aware Command Center'
 
@@ -144,7 +145,7 @@ function createWindow(): void {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    title: 'Red Ledger',
+    title: APP_WINDOW_TITLE,
     backgroundColor: prefersDarkMode ? '#1F1A19' : '#FDFCF8',
     icon: join(__dirname, '../../build/icon.png'),
     webPreferences: {
@@ -153,6 +154,16 @@ function createWindow(): void {
       contextIsolation: true,
       sandbox: true
     }
+  })
+
+  // Keep native window title controlled by main process.
+  mainWindow.on('page-title-updated', (event) => {
+    event.preventDefault()
+    mainWindow?.setTitle(APP_WINDOW_TITLE)
+  })
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow?.setTitle(APP_WINDOW_TITLE)
   })
 
   // Load the app
