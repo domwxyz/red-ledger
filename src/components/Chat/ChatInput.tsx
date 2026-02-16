@@ -19,6 +19,7 @@ export function ChatInput({
   onRemoveAttachment,
   onClearAttachments
 }: ChatInputProps) {
+  const MAX_TEXTAREA_HEIGHT = 200
   const [input, setInput] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -56,6 +57,7 @@ export function ChatInput({
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.overflowY = 'hidden'
     }
 
     await sendMessage(content, pending)
@@ -74,7 +76,8 @@ export function ChatInput({
     const textarea = textareaRef.current
     if (textarea) {
       textarea.style.height = 'auto'
-      textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px'
+      textarea.style.height = Math.min(textarea.scrollHeight, MAX_TEXTAREA_HEIGHT) + 'px'
+      textarea.style.overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden'
     }
   }
 
@@ -121,7 +124,7 @@ export function ChatInput({
           }
           disabled={isDisabled || isStreaming}
           rows={1}
-          className="textarea textarea-bordered flex-1 bg-base-100 resize-none text-sm min-h-[40px] max-h-[200px] leading-relaxed focus:outline-none focus:border-weathered"
+          className="textarea textarea-bordered flex-1 bg-base-100 resize-none overflow-y-hidden text-sm min-h-[40px] max-h-[200px] leading-relaxed focus:outline-none focus:border-weathered"
         />
 
         {isStreaming ? (
