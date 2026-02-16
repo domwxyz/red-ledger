@@ -6,11 +6,20 @@ import type { Attachment } from '@/types'
 
 interface ChatInputProps {
   streaming: ReturnType<typeof useStreaming>
+  attachments: Attachment[]
+  onAddAttachments: (attachments: Attachment[]) => void
+  onRemoveAttachment: (index: number) => void
+  onClearAttachments: () => void
 }
 
-export function ChatInput({ streaming }: ChatInputProps) {
+export function ChatInput({
+  streaming,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
+  onClearAttachments
+}: ChatInputProps) {
   const [input, setInput] = useState('')
-  const [attachments, setAttachments] = useState<Attachment[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const activeConversationId = useConversationStore((s) => s.activeConversationId)
@@ -22,13 +31,9 @@ export function ChatInput({ streaming }: ChatInputProps) {
   const handleAttach = useCallback(async () => {
     const files = await window.redLedger.openAttachmentFiles()
     if (files.length > 0) {
-      setAttachments((prev) => [...prev, ...files])
+      onAddAttachments(files)
     }
-  }, [])
-
-  const removeAttachment = useCallback((index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index))
-  }, [])
+  }, [onAddAttachments])
 
   const handleSend = useCallback(async () => {
     const content = input.trim()
@@ -47,14 +52,14 @@ export function ChatInput({ streaming }: ChatInputProps) {
 
     const pending = attachments.length > 0 ? [...attachments] : undefined
     setInput('')
-    setAttachments([])
+    onClearAttachments()
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
 
     await sendMessage(content, pending)
-  }, [input, attachments, activeConversationId, createConversation, workspacePath, settings, isStreaming, sendMessage])
+  }, [input, attachments, activeConversationId, createConversation, workspacePath, settings, isStreaming, onClearAttachments, sendMessage])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -88,7 +93,7 @@ export function ChatInput({ streaming }: ChatInputProps) {
               <Paperclip size={10} className="shrink-0 text-soft-charcoal/40" />
               <span className="truncate max-w-[150px]">{a.name}</span>
               <button
-                onClick={() => removeAttachment(i)}
+                onClick={() => onRemoveAttachment(i)}
                 className="ml-0.5 hover:text-rca-red transition-colors"
                 title="Remove"
               >

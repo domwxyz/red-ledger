@@ -74,6 +74,14 @@ export class LlmService {
       .join('')
   }
 
+  private buildImageMetadataBlocks(images: ImageAttachment[]): string {
+    if (images.length === 0) return ''
+
+    return images
+      .map((image) => `\n\n---\n**Attached image: ${image.name}**`)
+      .join('')
+  }
+
   private withTimestampTag(content: LLMMessageContent, timestamp: string): LLMMessageContent {
     const timestampTag = `[system: msg_timestamp=${timestamp}]\n\n`
 
@@ -117,7 +125,7 @@ export class LlmService {
     }
 
     return [
-      { type: 'text', text: textWithFileBlocks },
+      { type: 'text', text: textWithFileBlocks + this.buildImageMetadataBlocks(images) },
       ...images.map((image) => ({
         type: 'image_url' as const,
         image_url: {

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { RedLedgerAPI } from '../src/types'
 
 /**
@@ -124,7 +124,18 @@ const api: RedLedgerAPI = {
     ipcRenderer.invoke('dialog:openTextFile'),
 
   openAttachmentFiles: () =>
-    ipcRenderer.invoke('dialog:openAttachmentFiles')
+    ipcRenderer.invoke('dialog:openAttachmentFiles'),
+
+  parseAttachmentFiles: (filePaths) =>
+    ipcRenderer.invoke('attachment:parseFiles', filePaths),
+
+  getPathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file)
+    } catch {
+      return ''
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld('redLedger', api)

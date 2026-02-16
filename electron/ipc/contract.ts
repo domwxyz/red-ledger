@@ -7,7 +7,7 @@
  */
 import type {
   Conversation, Message, Settings, FileNode, SearchResult,
-  Attachment, LLMRequest, StreamChunk, ContextProfile
+  Attachment, AttachmentParseResult, LLMRequest, StreamChunk, ContextProfile
 } from '../../src/types'
 
 // ─── Helper types used only by the contract ─────────────────────────────────
@@ -73,6 +73,7 @@ export interface IpcContract {
   'dialog:confirm':             { params: [options: ConfirmDialogOptions];             result: boolean }
   'dialog:openTextFile':        { params: [];                                          result: string | null }
   'dialog:openAttachmentFiles': { params: [];                                          result: Attachment[] }
+  'attachment:parseFiles':      { params: [filePaths: string[]];                       result: AttachmentParseResult }
 }
 
 // ─── Streaming contract (event-based, not invoke/handle) ────────────────────

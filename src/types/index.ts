@@ -132,6 +132,11 @@ export interface ImageAttachment {
 
 export type Attachment = TextAttachment | ImageAttachment
 
+export interface AttachmentParseResult {
+  attachments: Attachment[]
+  failed: string[]
+}
+
 // --- Context Profiles ---
 
 export interface ContextProfile {
@@ -209,6 +214,8 @@ export interface RedLedgerAPI {
   showConfirmDialog(options: { title: string; message: string; detail?: string }): Promise<boolean>
   openTextFile(): Promise<string | null>
   openAttachmentFiles(): Promise<Attachment[]>
+  parseAttachmentFiles(filePaths: string[]): Promise<AttachmentParseResult>
+  getPathForFile(file: File): string
 }
 
 // Extend Window interface for the renderer
