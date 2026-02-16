@@ -10,7 +10,8 @@ No accounts, no cloud sync, no telemetry. Settings and chat data stay on your ma
 - Tool calling for local file ops + web/wiki/url tools.
 - Workspace jail for file safety, with optional strict confirmation mode.
 - 3 persistent context files (`system`, `user`, `org`) injected into every run.
-- File attachments from `.txt`, `.md`, and `.pdf` (PDF text extraction included).
+- Text file attachments from `.txt`, `.md`, and `.pdf` (PDF text extraction included).
+- Image file attachments from `.png`, `.jpeg/.jpg`, `.webp`, and `.gif` for vision capable models.
 - Local SQLite conversation history with retry/copy message actions.
 
 ## Quick Start
@@ -86,6 +87,7 @@ The LLM can invoke these tools during a conversation:
 | `append_file` | Append content to a workspace file |
 | `list_files` | List the workspace directory tree |
 | `web_search` | Search the web (Tavily or SerpAPI) |
+| `org_search` | Search the web (Tavily or SerpAPI) using optional site specification (Org Site in settings) |
 | `wiki_search` | Search Wikipedia for article summaries |
 | `fetch_url` | Fetch and parse a full webpage by URL (includes extracted `links` for navigation) |
 
