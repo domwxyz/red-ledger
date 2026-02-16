@@ -56,4 +56,14 @@ describe('WorkspaceService.writeFile', () => {
     expect(existsSync(filePath)).toBe(true)
     expect(readFileSync(filePath, 'utf-8')).toBe('line1\nline2\n')
   })
+
+  it('writes binary files and creates parent directories', async () => {
+    const filePath = join(workspaceRoot, 'exports', 'report.pdf')
+    const content = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37])
+
+    await service.writeBinaryFile(null, 'exports/report.pdf', content)
+
+    expect(existsSync(filePath)).toBe(true)
+    expect(readFileSync(filePath)).toEqual(content)
+  })
 })

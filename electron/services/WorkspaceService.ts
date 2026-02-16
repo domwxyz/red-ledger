@@ -52,6 +52,57 @@ export class WorkspaceService {
     this.workspacePath = path
   }
 
+  private resolveWriteTarget(relativePath: string): { fullPath: string; fileExists: boolean } {
+    if (!this.workspacePath) {
+      throw new PathJailError('WORKSPACE_NOT_SET', 'No workspace directory selected')
+    }
+
+    const fullPath = resolveWorkspacePath(this.workspacePath, relativePath)
+    return { fullPath, fileExists: existsSync(fullPath) }
+  }
+
+  private async confirmWriteAllowed(
+    dialog: DialogAdapter | null,
+    relativePath: string,
+    fullPath: string,
+    fileExists: boolean,
+    append: boolean
+  ): Promise<void> {
+    if (!dialog) return
+
+    const settings = this.getSettings()
+
+    // Overwrite confirmation (always, regardless of strict mode)
+    if (fileExists && !append) {
+      const confirmed = await dialog.showMessageBox({
+        type: 'warning',
+        buttons: ['Cancel', 'Overwrite'],
+        defaultId: 0,
+        title: 'Overwrite File',
+        message: 'Overwrite existing file? This cannot be undone.',
+        detail: fullPath
+      })
+      if (confirmed.response === 0) {
+        throw new PathJailError('USER_DENIED', 'User cancelled file overwrite')
+      }
+    }
+
+    // Strict mode check for new file creation
+    if (!fileExists && settings.strictMode) {
+      const confirmed = await dialog.showMessageBox({
+        type: 'question',
+        buttons: ['Deny', 'Allow'],
+        defaultId: 0,
+        title: 'File Write Request',
+        message: `The assistant wants to create: ${relativePath}`,
+        detail: 'Do you want to allow this file creation?'
+      })
+      if (confirmed.response === 0) {
+        throw new PathJailError('USER_DENIED', 'User denied file creation')
+      }
+    }
+  }
+
   // ─── File Operations ──────────────────────────────────────────────────────
 
   async readFile(dialog: DialogAdapter | null, relativePath: string): Promise<string> {
@@ -96,46 +147,8 @@ export class WorkspaceService {
     content: string,
     append: boolean = false
   ): Promise<void> {
-    if (!this.workspacePath) {
-      throw new PathJailError('WORKSPACE_NOT_SET', 'No workspace directory selected')
-    }
-
-    const fullPath = resolveWorkspacePath(this.workspacePath, relativePath)
-    const fileExists = existsSync(fullPath)
-
-    if (dialog) {
-      const settings = this.getSettings()
-
-      // Overwrite confirmation (always, regardless of strict mode)
-      if (fileExists && !append) {
-        const confirmed = await dialog.showMessageBox({
-          type: 'warning',
-          buttons: ['Cancel', 'Overwrite'],
-          defaultId: 0,
-          title: 'Overwrite File',
-          message: `Overwrite existing file? This cannot be undone.`,
-          detail: fullPath
-        })
-        if (confirmed.response === 0) {
-          throw new PathJailError('USER_DENIED', 'User cancelled file overwrite')
-        }
-      }
-
-      // Strict mode check for new file creation
-      if (!fileExists && settings.strictMode) {
-        const confirmed = await dialog.showMessageBox({
-          type: 'question',
-          buttons: ['Deny', 'Allow'],
-          defaultId: 0,
-          title: 'File Write Request',
-          message: `The assistant wants to create: ${relativePath}`,
-          detail: 'Do you want to allow this file creation?'
-        })
-        if (confirmed.response === 0) {
-          throw new PathJailError('USER_DENIED', 'User denied file creation')
-        }
-      }
-    }
+    const { fullPath, fileExists } = this.resolveWriteTarget(relativePath)
+    await this.confirmWriteAllowed(dialog, relativePath, fullPath, fileExists, append)
 
     mkdirSync(dirname(fullPath), { recursive: true })
 
@@ -144,6 +157,18 @@ export class WorkspaceService {
     } else {
       writeFileSync(fullPath, content, 'utf-8')
     }
+  }
+
+  async writeBinaryFile(
+    dialog: DialogAdapter | null,
+    relativePath: string,
+    content: Buffer
+  ): Promise<void> {
+    const { fullPath, fileExists } = this.resolveWriteTarget(relativePath)
+    await this.confirmWriteAllowed(dialog, relativePath, fullPath, fileExists, false)
+
+    mkdirSync(dirname(fullPath), { recursive: true })
+    writeFileSync(fullPath, content)
   }
 
   listFiles(relativePath?: string): FileNode[] {

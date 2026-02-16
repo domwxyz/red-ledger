@@ -82,6 +82,7 @@ The LLM can invoke these tools during a conversation:
 |------|-------------|
 | `read_file` | Read a file from the workspace |
 | `write_file` | Write or overwrite a workspace file |
+| `write_pdf` | Render markdown content and write a PDF file |
 | `append_file` | Append content to a workspace file |
 | `list_files` | List the workspace directory tree |
 | `web_search` | Search the web (Tavily or SerpAPI) |
