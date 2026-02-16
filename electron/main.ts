@@ -4,6 +4,7 @@ import { join, basename, extname } from 'path'
 import { readFileSync } from 'fs'
 import { extractPdfTextWithFallback } from './services/PdfAttachmentService'
 import type { Attachment, AttachmentParseResult, ImageAttachmentMimeType } from '../src/types'
+import { APP_NAME } from '../src/lib/appInfo'
 import { resolveSettingsPath, resolveDbPath } from './services/SettingsService'
 import { registerDbHandlers, getConversationService } from './ipc/db'
 import { registerContextHandlers, getContextService } from './ipc/context'
@@ -17,7 +18,6 @@ import { assertObject } from './ipc/validate'
 let mainWindow: BrowserWindow | null = null
 let ipcHandlersRegistered = false
 
-const APP_NAME = app.getName().split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 const APP_WINDOW_TITLE = `${APP_NAME} ${app.getVersion()}`
 const ABOUT_AUTHOR = 'D. Cusanelli'
 const ABOUT_DESCRIPTION = 'Context Aware Command Center'
