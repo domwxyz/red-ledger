@@ -152,13 +152,17 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private async _stream(options: ProviderSendOptions, controller: AbortController): Promise<void> {
-    const { messages, model, tools, temperature, maxTokens, onChunk } = options
+    const { messages, model, tools, temperature, maxTokens, extraBody, onChunk } = options
 
     const body: Record<string, unknown> = {
       model,
       messages,
       stream: true,
       temperature: temperature ?? 0.7
+    }
+
+    if (extraBody && typeof extraBody === 'object') {
+      Object.assign(body, extraBody)
     }
 
     if (maxTokens) {

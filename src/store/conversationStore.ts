@@ -152,23 +152,6 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         )
       }))
 
-      // Auto-title: when the first user message is added to a "New Chat",
-      // rename the conversation based on the message content
-      if (data.role === 'user') {
-        const { conversations, messages } = get()
-        const conv = conversations.find((c) => c.id === data.conversationId)
-        const isFirstUserMessage = messages.filter((m) => m.role === 'user').length === 1
-        if (conv && conv.title === 'New Chat' && isFirstUserMessage) {
-          const normalized = data.content.trim()
-          const fallback = data.attachments?.[0]?.name
-            ? `Attached: ${data.attachments[0].name}`
-            : 'New Chat'
-          const base = normalized.length > 0 ? normalized : fallback
-          const title = base.slice(0, 50).trim() + (base.length > 50 ? '...' : '')
-          get().renameConversation(conv.id, title)
-        }
-      }
-
       return message
     } catch (err) {
       notify({ type: 'error', message: formatError(err) })

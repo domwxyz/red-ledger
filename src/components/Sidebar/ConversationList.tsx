@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Trash2, Pencil, Check, X } from 'lucide-react'
 import { useConversationStore, useUIStore } from '@/store'
-import { cn, formatTimestamp, truncate } from '@/lib/utils'
+import { cn, formatTimestamp } from '@/lib/utils'
 
 interface ConversationListProps {
   compactNewChatButton?: boolean
@@ -115,7 +115,7 @@ export function ConversationList({ compactNewChatButton = false }: ConversationL
                 ) : (
                   <>
                     <div className="text-sm font-medium truncate leading-snug">
-                      {truncate(conv.title, 30)}
+                      {conv.title}
                     </div>
                     <div className="text-[11px] text-soft-charcoal/40 mt-0.5 leading-tight">
                       {formatTimestamp(conv.updatedAt)}

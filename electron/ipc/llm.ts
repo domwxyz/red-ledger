@@ -1,8 +1,8 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { LlmService, type StreamSink } from '../services/LlmService'
 import { executeTool } from '../lib/tools/executor'
-import { assertString, assertObject } from './validate'
-import type { LLMRequest, StreamChunk, ProviderName, Settings } from '../../src/types'
+import { assertString, assertObject, assertOptionalNumber } from './validate'
+import type { LLMRequest, StreamChunk, ProviderName, Settings, TitleGenerationRequest } from '../../src/types'
 import { handleIpc } from './typedIpc'
 
 /**
@@ -60,5 +60,14 @@ export function registerLlmHandlers(deps: {
   handleIpc('llm:listModels', async (_e, provider) => {
     assertString(provider, 'provider')
     return service.listModels(provider as ProviderName)
+  })
+
+  handleIpc('llm:generateTitle', async (_e, request) => {
+    assertObject(request, 'request')
+    assertString(request.provider, 'request.provider')
+    assertString(request.model, 'request.model')
+    assertString(request.prompt, 'request.prompt')
+    assertOptionalNumber(request.maxTokens, 'request.maxTokens')
+    return service.generateTitle(request as TitleGenerationRequest)
   })
 }

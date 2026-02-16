@@ -76,6 +76,13 @@ export interface LLMRequest {
   maxTokens?: number
 }
 
+export interface TitleGenerationRequest {
+  prompt: string
+  model: string
+  provider: ProviderName
+  maxTokens?: number
+}
+
 export interface LLMRequestMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
@@ -202,6 +209,7 @@ export interface RedLedgerAPI {
   // LLM Streaming
   sendMessage(request: LLMRequest, onStream: (chunk: StreamChunk) => void): () => void
   listModels(provider: string): Promise<string[]>
+  generateTitle(request: TitleGenerationRequest): Promise<string | null>
 
   // Settings
   loadSettings(): Promise<Settings>

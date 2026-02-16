@@ -7,7 +7,7 @@
  */
 import type {
   Conversation, Message, Settings, FileNode, SearchResult,
-  Attachment, AttachmentParseResult, LLMRequest, StreamChunk, ContextProfile
+  Attachment, AttachmentParseResult, LLMRequest, StreamChunk, ContextProfile, TitleGenerationRequest
 } from '../../src/types'
 
 // ─── Helper types used only by the contract ─────────────────────────────────
@@ -68,6 +68,7 @@ export interface IpcContract {
   // LLM (non-streaming)
   'llm:listModels':             { params: [provider: string];                          result: string[] }
   'llm:cancelStream':           { params: [channel: string];                           result: void }
+  'llm:generateTitle':          { params: [request: TitleGenerationRequest];           result: string | null }
 
   // Dialogs
   'dialog:confirm':             { params: [options: ConfirmDialogOptions];             result: boolean }

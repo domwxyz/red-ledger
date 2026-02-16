@@ -102,6 +102,9 @@ const api: RedLedgerAPI = {
   listModels: (provider: string) =>
     ipcRenderer.invoke('llm:listModels', provider),
 
+  generateTitle: (request) =>
+    ipcRenderer.invoke('llm:generateTitle', request),
+
   // ─── Settings ────────────────────────────────────────────────────────────
 
   loadSettings: () =>

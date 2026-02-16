@@ -346,9 +346,6 @@ export function MessageBubble({
         <details className="max-w-[85%] border border-weathered rounded-card bg-base-100 overflow-hidden group/thinking">
           <summary className="inline-flex items-center gap-1.5 cursor-pointer px-3 py-2 text-xs text-soft-charcoal/70 hover:text-soft-charcoal select-none list-none [&::-webkit-details-marker]:hidden">
             <span className="font-medium uppercase tracking-wide">Reasoning Trace</span>
-            {isReceivingThinking && (
-              <span className="thinking-inline-indicator ml-1">thinking...</span>
-            )}
             <span className="text-[10px] opacity-50 group-open/thinking:rotate-90 transition-transform">&#9654;</span>
           </summary>
           <pre className="m-0 border-t border-weathered bg-base-200/40 px-3 py-2 text-xs font-mono whitespace-pre-wrap max-h-[260px] overflow-y-auto">
@@ -377,13 +374,12 @@ export function MessageBubble({
               className="prose prose-sm max-w-none"
               dangerouslySetInnerHTML={{ __html: seg.html }}
             />
-            {/* Streaming cursor - only on the very last text segment */}
+            {/* Streaming activity indicator - only on the very last text segment */}
             {isStreaming && isLastTextSegment && (
               <span className="inline-flex items-center">
-                <span className="streaming-cursor" />
-                {isReceivingThinking && (
-                  <span className="thinking-inline-indicator">thinking...</span>
-                )}
+                {isReceivingThinking
+                  ? <span className="thinking-inline-indicator ml-0">thinking...</span>
+                  : <span className="streaming-cursor" />}
               </span>
             )}
           </div>
@@ -391,26 +387,24 @@ export function MessageBubble({
       })}
 
       {/* If streaming and the last segment is a tool call (text hasn't resumed yet),
-          show cursor in a minimal bubble so the user sees activity */}
+          show an activity indicator in a minimal bubble so the user sees activity */}
       {isStreaming && !lastSegmentIsText && segments.length > 0 && (
         <div className="message-bubble assistant">
           <span className="inline-flex items-center">
-            <span className="streaming-cursor" />
-            {isReceivingThinking && (
-              <span className="thinking-inline-indicator">thinking...</span>
-            )}
+            {isReceivingThinking
+              ? <span className="thinking-inline-indicator ml-0">thinking...</span>
+              : <span className="streaming-cursor" />}
           </span>
         </div>
       )}
 
-      {/* If streaming but no segments yet (very start), show cursor */}
+      {/* If streaming but no segments yet (very start), show activity indicator */}
       {isStreaming && segments.length === 0 && (
         <div className="message-bubble assistant">
           <span className="inline-flex items-center">
-            <span className="streaming-cursor" />
-            {isReceivingThinking && (
-              <span className="thinking-inline-indicator">thinking...</span>
-            )}
+            {isReceivingThinking
+              ? <span className="thinking-inline-indicator ml-0">thinking...</span>
+              : <span className="streaming-cursor" />}
           </span>
         </div>
       )}

@@ -1,6 +1,7 @@
 import type { LLMMessage, AbortHandle, LLMMessageContent } from '../lib/providers/base'
 import { createProvider } from '../lib/providers/registry'
 import { getToolDefinitions } from '../lib/tools/registry'
+import { sanitizeGeneratedChatTitle } from '../../src/lib/chatTitle'
 import type {
   LLMRequest,
   StreamChunk,
@@ -8,7 +9,8 @@ import type {
   ProviderName,
   Settings,
   Attachment,
-  ImageAttachment
+  ImageAttachment,
+  TitleGenerationRequest
 } from '../../src/types'
 
 // Side-effect imports: each provider self-registers when loaded
@@ -18,6 +20,24 @@ import '../lib/providers/ollama'
 import '../lib/providers/lmstudio'
 
 const MAX_TOOL_ROUNDS = 10
+const DEFAULT_TITLE_MAX_TOKENS = 24
+const TITLE_TEMPERATURE = 0.2
+const TITLE_GENERATION_SYSTEM_PROMPT =
+  'Generate a concise chat title for the provided user prompt. Return only the title text in 2 to 6 words. No reasoning, no prefix, no quotes, no markdown, and no trailing punctuation.'
+
+function buildTitleGenerationExtraBody(provider: ProviderName): Record<string, unknown> | undefined {
+  if (provider !== 'openrouter') return undefined
+
+  // OpenRouter reasoning models may consume small token budgets with hidden reasoning.
+  // Force reasoning off so a 24-token response still returns visible title text.
+  return {
+    include_reasoning: false,
+    reasoning: {
+      effort: 'none',
+      exclude: true
+    }
+  }
+}
 
 /**
  * Interface for sending stream chunks to the renderer.
@@ -289,6 +309,56 @@ export class LlmService {
   async listModels(providerName: ProviderName): Promise<string[]> {
     const provider = this.createProvider(providerName)
     return provider.listModels()
+  }
+
+  async generateTitle(request: TitleGenerationRequest): Promise<string | null> {
+    const prompt = request.prompt.trim()
+    if (!prompt) return null
+
+    const provider = this.createProvider(request.provider)
+    const maxTokens = request.maxTokens && Number.isFinite(request.maxTokens)
+      ? Math.max(1, Math.min(Math.floor(request.maxTokens), DEFAULT_TITLE_MAX_TOKENS))
+      : DEFAULT_TITLE_MAX_TOKENS
+    const extraBody = buildTitleGenerationExtraBody(request.provider)
+
+    const titleText = await new Promise<string>((resolve, reject) => {
+      let settled = false
+      let titleBuffer = ''
+
+      provider.sendStreaming({
+        model: request.model,
+        messages: [
+          { role: 'system', content: TITLE_GENERATION_SYSTEM_PROMPT },
+          { role: 'user', content: `User prompt:\n${prompt}\n\nTitle:` }
+        ],
+        tools: [],
+        temperature: TITLE_TEMPERATURE,
+        maxTokens,
+        ...(extraBody ? { extraBody } : {}),
+        onChunk: (chunk) => {
+          if (settled) return
+
+          if (chunk.type === 'text' && chunk.content) {
+            titleBuffer += chunk.content
+            return
+          }
+
+          if (chunk.type === 'error') {
+            settled = true
+            reject(new Error(chunk.error || 'Title generation failed'))
+            return
+          }
+
+          if (chunk.type === 'done') {
+            settled = true
+            resolve(titleBuffer)
+          }
+        }
+      })
+    })
+
+    const sanitized = sanitizeGeneratedChatTitle(titleText)
+    return sanitized
   }
 
   // ─── Provider Factory ─────────────────────────────────────────────────────

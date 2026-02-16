@@ -2,11 +2,26 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useConversationStore, useSettingsStore, useUIStore } from '@/store'
 import { formatError } from '@/lib/errors'
 import { notify } from '@/lib/notify'
-import type { StreamChunk, ToolCall, LLMRequest, Message, Attachment } from '@/types'
+import { DEFAULT_CHAT_TITLE, sanitizeGeneratedChatTitle } from '@/lib/chatTitle'
+import type { StreamChunk, ToolCall, LLMRequest, Message, Attachment, ProviderName } from '@/types'
 
 const STREAM_THROTTLE_MS = 50
 const THINKING_ACTIVE_WINDOW_MS = 1500
 const THINKING_BLOCK_SEPARATOR = '\n\n---\n\n'
+const AUTO_TITLE_PLACEHOLDER = DEFAULT_CHAT_TITLE
+const AUTO_TITLE_DELAY_MS = 500
+const AUTO_TITLE_MAX_TOKENS = 24
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function isUntitledConversationTitle(title: string | undefined | null): boolean {
+  if (!title) return false
+  return title.trim().toLowerCase() === AUTO_TITLE_PLACEHOLDER.toLowerCase()
+}
 
 function findLastUserMessage(messages: Message[]): Message | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -39,6 +54,7 @@ export function useStreaming() {
   const lastStreamChunkTypeRef = useRef<StreamChunk['type'] | null>(null)
   const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const thinkingActivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const titleGenerationInFlightRef = useRef(new Set<string>())
 
   const clearThinkingActivity = useCallback(() => {
     setIsReceivingThinking(false)
@@ -114,6 +130,52 @@ export function useStreaming() {
         message: formatError(err)
       })
     })
+  }, [])
+
+  const maybeGenerateConversationTitle = useCallback((
+    conversationId: string,
+    provider: ProviderName,
+    model: string
+  ) => {
+    if (titleGenerationInFlightRef.current.has(conversationId)) return
+
+    titleGenerationInFlightRef.current.add(conversationId)
+
+    void (async () => {
+      try {
+        await delay(AUTO_TITLE_DELAY_MS)
+
+        const conversation = await window.redLedger.getConversation(conversationId)
+        if (!conversation || !isUntitledConversationTitle(conversation.title)) {
+          return
+        }
+
+        const persistedMessages = await window.redLedger.listMessages(conversationId)
+        const firstUserMessage = persistedMessages.find((message) => message.role === 'user')
+        const firstPrompt = firstUserMessage?.content.trim() || ''
+        if (!firstPrompt) return
+
+        const generatedTitle = await window.redLedger.generateTitle({
+          prompt: firstPrompt,
+          provider,
+          model,
+          maxTokens: AUTO_TITLE_MAX_TOKENS
+        })
+        const sanitizedTitle = sanitizeGeneratedChatTitle(generatedTitle)
+        if (!sanitizedTitle || sanitizedTitle === AUTO_TITLE_PLACEHOLDER) return
+
+        const conversationBeforeRename = await window.redLedger.getConversation(conversationId)
+        if (!conversationBeforeRename || !isUntitledConversationTitle(conversationBeforeRename.title)) {
+          return
+        }
+
+        await useConversationStore.getState().renameConversation(conversationId, sanitizedTitle)
+      } catch {
+        // Keep placeholder title if generation fails.
+      } finally {
+        titleGenerationInFlightRef.current.delete(conversationId)
+      }
+    })()
   }, [])
 
   const cancel = useCallback(() => {
@@ -286,6 +348,8 @@ export function useStreaming() {
           }
 
           case 'text': {
+            // Thinking ends as soon as we receive the first non-thinking output chunk.
+            clearThinkingActivity()
             contentRef.current += chunk.content || ''
             scheduleFlush()
             lastStreamChunkTypeRef.current = 'text'
@@ -293,6 +357,8 @@ export function useStreaming() {
           }
 
           case 'tool_call': {
+            // Tool activity is non-thinking output; hide thinking indicator immediately.
+            clearThinkingActivity()
             if (chunk.toolCall) {
               // Stamp the current text length so the UI can interleave tool calls
               const stamped = { ...chunk.toolCall, contentOffset: contentRef.current.length }
@@ -304,6 +370,8 @@ export function useStreaming() {
           }
 
           case 'tool_result': {
+            // Tool activity is non-thinking output; hide thinking indicator immediately.
+            clearThinkingActivity()
             if (chunk.toolCall) {
               toolCallsRef.current = toolCallsRef.current.map((tc) =>
                 tc.id === chunk.toolCall!.id
@@ -349,6 +417,7 @@ export function useStreaming() {
       })
 
       cleanupRef.current = cleanup
+      maybeGenerateConversationTitle(conversationId, lockedProvider, lockedModel)
 
     } catch (err) {
       if (tempMessageIdRef.current) {
@@ -367,9 +436,11 @@ export function useStreaming() {
         message: formatError(err)
       })
     }
-  }, [clearThinkingActivity, finalizeTempMessage, markThinkingActivity])
+  }, [clearThinkingActivity, finalizeTempMessage, markThinkingActivity, maybeGenerateConversationTitle])
 
   useEffect(() => {
+    const titleGenerationInFlight = titleGenerationInFlightRef.current
+
     return () => {
       if (cleanupRef.current) {
         cleanupRef.current()
@@ -383,6 +454,7 @@ export function useStreaming() {
         clearTimeout(thinkingActivityTimerRef.current)
         thinkingActivityTimerRef.current = null
       }
+      titleGenerationInFlight.clear()
     }
   }, [])
 
