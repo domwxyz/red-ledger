@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CircleHelp, Moon, Sun } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleHelp, Moon, Sun } from 'lucide-react'
 import { useSettingsStore } from '@/store'
 import type { ProviderName } from '@/types'
 
@@ -205,324 +205,407 @@ export function SettingsPanel() {
   return (
     <div className="h-full flex flex-col min-h-0">
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-      {/* Provider Selection */}
-      <div>
-        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
-          Provider
-        </label>
-        <select
-          value={settings.activeProvider}
-          onChange={(e) => {
-            const nextProvider = e.target.value as ProviderName
-            const remembered = settings.providers[nextProvider].selectedModel
+        <button
+          type="button"
+          aria-expanded={settings.providerSectionExpanded}
+          onClick={() =>
             saveSettings({
               ...settings,
-              activeProvider: nextProvider,
-              ...(remembered ? { defaultModel: remembered } : {})
+              providerSectionExpanded: !settings.providerSectionExpanded
             })
-          }}
-          className="select select-sm select-bordered w-full bg-base-100"
+          }
+          className="divider text-[10px] text-soft-charcoal/30 uppercase tracking-widest my-1 w-full cursor-pointer bg-transparent border-0 p-0 hover:text-soft-charcoal/50 transition-colors"
         >
-          {PROVIDERS.map((p) => (
-            <option key={p.id} value={p.id}>{p.label}</option>
-          ))}
-        </select>
-      </div>
+          <span className="inline-flex items-center gap-1">
+            {settings.providerSectionExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            Provider
+          </span>
+        </button>
 
-      {/* API Key */}
-      {settings.activeProvider !== 'ollama' && settings.activeProvider !== 'lmstudio' && (
-        <div>
-          <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
-            API Key
-          </label>
-          <input
-            type="password"
-            value={activeProvider.apiKey}
-            onChange={(e) =>
-              saveSettings({
-                ...settings,
-                providers: {
-                  ...settings.providers,
-                  [settings.activeProvider]: {
-                    ...activeProvider,
-                    apiKey: e.target.value
-                  }
-                }
-              })
-            }
-            placeholder="sk-..."
-            className="input input-sm input-bordered w-full bg-base-100"
-          />
-        </div>
-      )}
+        {settings.providerSectionExpanded && (
+          <>
+            {/* Provider Selection */}
+            <div>
+              <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
+                Provider
+              </label>
+              <select
+                value={settings.activeProvider}
+                onChange={(e) => {
+                  const nextProvider = e.target.value as ProviderName
+                  const remembered = settings.providers[nextProvider].selectedModel
+                  saveSettings({
+                    ...settings,
+                    activeProvider: nextProvider,
+                    ...(remembered ? { defaultModel: remembered } : {})
+                  })
+                }}
+                className="select select-sm select-bordered w-full bg-base-100"
+              >
+                {PROVIDERS.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+            </div>
 
-      {/* LM Studio Compatibility */}
-      {settings.activeProvider === 'lmstudio' && (
-        <div>
-          <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
-            Compatibility
-          </label>
-          <select
-            value={activeProvider.compatibility || 'openai'}
-            onChange={(e) =>
-              saveSettings({
-                ...settings,
-                providers: {
-                  ...settings.providers,
-                  lmstudio: {
-                    ...activeProvider,
-                    compatibility: e.target.value as 'openai' | 'lmstudio'
+            {/* API Key */}
+            {settings.activeProvider !== 'ollama' && settings.activeProvider !== 'lmstudio' && (
+              <div>
+                <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
+                  API Key
+                </label>
+                <input
+                  type="password"
+                  value={activeProvider.apiKey}
+                  onChange={(e) =>
+                    saveSettings({
+                      ...settings,
+                      providers: {
+                        ...settings.providers,
+                        [settings.activeProvider]: {
+                          ...activeProvider,
+                          apiKey: e.target.value
+                        }
+                      }
+                    })
                   }
-                }
-              })
-            }
-            className="select select-sm select-bordered w-full bg-base-100"
-          >
-            <option value="openai">OpenAI Endpoints</option>
-            <option value="lmstudio">LM Studio Endpoints</option>
-          </select>
-        </div>
-      )}
+                  placeholder="sk-..."
+                  className="input input-sm input-bordered w-full bg-base-100"
+                />
+              </div>
+            )}
 
-      {/* Base URL */}
-      <div>
-        <div className="mb-1 flex items-center justify-between">
-          <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
-            Base URL
-          </label>
-          <button
-            type="button"
-            onClick={() => {
-              refreshModels()
-              saveSettings({
-                ...settings,
-                providers: {
-                  ...settings.providers,
-                  [settings.activeProvider]: {
-                    ...activeProvider,
-                    baseUrl: PROVIDER_DEFAULT_BASE_URLS[settings.activeProvider]
+            {/* LM Studio Compatibility */}
+            {settings.activeProvider === 'lmstudio' && (
+              <div>
+                <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
+                  Compatibility
+                </label>
+                <select
+                  value={activeProvider.compatibility || 'openai'}
+                  onChange={(e) =>
+                    saveSettings({
+                      ...settings,
+                      providers: {
+                        ...settings.providers,
+                        lmstudio: {
+                          ...activeProvider,
+                          compatibility: e.target.value as 'openai' | 'lmstudio'
+                        }
+                      }
+                    })
                   }
+                  className="select select-sm select-bordered w-full bg-base-100"
+                >
+                  <option value="openai">OpenAI Endpoints</option>
+                  <option value="lmstudio">LM Studio Endpoints</option>
+                </select>
+              </div>
+            )}
+
+            {/* Base URL */}
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
+                  Base URL
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    refreshModels()
+                    saveSettings({
+                      ...settings,
+                      providers: {
+                        ...settings.providers,
+                        [settings.activeProvider]: {
+                          ...activeProvider,
+                          baseUrl: PROVIDER_DEFAULT_BASE_URLS[settings.activeProvider]
+                        }
+                      }
+                    })
+                  }}
+                  className="btn btn-ghost btn-xs h-6 min-h-0 px-2 text-[10px] uppercase tracking-wide"
+                >
+                  Reset
+                </button>
+              </div>
+              <input
+                type="text"
+                value={activeProvider.baseUrl}
+                onChange={(e) =>
+                  saveSettings({
+                    ...settings,
+                    providers: {
+                      ...settings.providers,
+                      [settings.activeProvider]: {
+                        ...activeProvider,
+                        baseUrl: e.target.value
+                      }
+                    }
+                  })
                 }
-              })
-            }}
-            className="btn btn-ghost btn-xs h-6 min-h-0 px-2 text-[10px] uppercase tracking-wide"
-          >
-            Reset
-          </button>
-        </div>
-        <input
-          type="text"
-          value={activeProvider.baseUrl}
-          onChange={(e) =>
+                className="input input-sm input-bordered w-full bg-base-100 text-xs"
+              />
+            </div>
+
+            {/* Default Model */}
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
+                  Model
+                </label>
+                <button
+                  type="button"
+                  onClick={refreshModels}
+                  disabled={modelsLoading}
+                  className="btn btn-ghost btn-xs h-6 min-h-0 px-2 text-[10px] uppercase tracking-wide"
+                >
+                  Refresh
+                </button>
+              </div>
+              {modelsLoading ? (
+                <div className="flex items-center gap-2 h-8">
+                  <span className="loading loading-spinner loading-xs text-rca-red" />
+                  <span className="text-xs text-soft-charcoal/40">Loading models...</span>
+                </div>
+              ) : modelsFetchFailed || models.length === 0 ? (
+                <input
+                  type="text"
+                  value={activeProviderModel}
+                  onChange={(e) => saveActiveProviderModel(e.target.value)}
+                  placeholder="moonshotai/kimi-k2.5"
+                  className="input input-sm input-bordered w-full bg-base-100"
+                />
+              ) : (
+                <select
+                  value={activeProviderModel}
+                  onChange={(e) => saveActiveProviderModel(e.target.value)}
+                  className="select select-sm select-bordered w-full bg-base-100"
+                >
+                  {!models.includes(activeProviderModel) && activeProviderModel && (
+                    <option value={activeProviderModel}>{activeProviderModel}</option>
+                  )}
+                  {models.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </>
+        )}
+
+        <button
+          type="button"
+          aria-expanded={settings.searchSectionExpanded}
+          onClick={() =>
             saveSettings({
               ...settings,
-              providers: {
-                ...settings.providers,
-                [settings.activeProvider]: {
-                  ...activeProvider,
-                  baseUrl: e.target.value
-                }
-              }
+              searchSectionExpanded: !settings.searchSectionExpanded
             })
           }
-          className="input input-sm input-bordered w-full bg-base-100 text-xs"
-        />
-      </div>
+          className="divider text-[10px] text-soft-charcoal/30 uppercase tracking-widest my-1 w-full cursor-pointer bg-transparent border-0 p-0 hover:text-soft-charcoal/50 transition-colors"
+        >
+          <span className="inline-flex items-center gap-1">
+            {settings.searchSectionExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            Search
+          </span>
+        </button>
 
-      {/* Default Model */}
-      <div>
-        <div className="mb-1 flex items-center justify-between">
-          <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
-            Model
-          </label>
-          <button
-            type="button"
-            onClick={refreshModels}
-            disabled={modelsLoading}
-            className="btn btn-ghost btn-xs h-6 min-h-0 px-2 text-[10px] uppercase tracking-wide"
-          >
-            Refresh
-          </button>
-        </div>
-        {modelsLoading ? (
-          <div className="flex items-center gap-2 h-8">
-            <span className="loading loading-spinner loading-xs text-rca-red" />
-            <span className="text-xs text-soft-charcoal/40">Loading models...</span>
-          </div>
-        ) : modelsFetchFailed || models.length === 0 ? (
-          <input
-            type="text"
-            value={activeProviderModel}
-            onChange={(e) => saveActiveProviderModel(e.target.value)}
-            placeholder="moonshotai/kimi-k2.5"
-            className="input input-sm input-bordered w-full bg-base-100"
-          />
-        ) : (
-          <select
-            value={activeProviderModel}
-            onChange={(e) => saveActiveProviderModel(e.target.value)}
-            className="select select-sm select-bordered w-full bg-base-100"
-          >
-            {!models.includes(activeProviderModel) && activeProviderModel && (
-              <option value={activeProviderModel}>{activeProviderModel}</option>
-            )}
-            {models.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+        {settings.searchSectionExpanded && (
+          <>
+            {/* Tavily Key */}
+            <div>
+              <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
+                Tavily API Key
+              </label>
+              <input
+                type="password"
+                value={settings.tavilyApiKey}
+                onChange={(e) => saveSettings({ ...settings, tavilyApiKey: e.target.value })}
+                placeholder="tvly-..."
+                className="input input-sm input-bordered w-full bg-base-100"
+              />
+            </div>
+
+            {/* SerpAPI Key */}
+            <div>
+              <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
+                SerpAPI Key
+              </label>
+              <input
+                type="password"
+                value={settings.serpApiKey}
+                onChange={(e) => saveSettings({ ...settings, serpApiKey: e.target.value })}
+                className="input input-sm input-bordered w-full bg-base-100"
+              />
+            </div>
+
+            {/* Org Site */}
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
+                  Org Site
+                </label>
+                <span
+                  className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+                  title="Optional. Allows search through a specific source by applying site:example.com."
+                  aria-label="Org Site help"
+                >
+                  <CircleHelp size={12} />
+                </span>
+              </div>
+              <input
+                type="text"
+                value={settings.orgSite}
+                onChange={(e) => saveSettings({ ...settings, orgSite: e.target.value })}
+                placeholder="example.com"
+                className="input input-sm input-bordered w-full bg-base-100"
+              />
+            </div>
+          </>
         )}
-      </div>
 
-      {/* Temperature */}
-      <div>
-        <div className="flex items-center justify-between py-0.5 mb-1">
-          <label className="text-[11px] font-medium text-soft-charcoal/60 uppercase tracking-wide">
-            Temperature
-          </label>
-          <div className="flex items-center gap-2">
-            <span
-              className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
-              title="Controls style and creativity."
-              aria-label="Temperature help"
-            >
-              <CircleHelp size={12} />
-            </span>
-            <input
-              type="checkbox"
-              checked={settings.temperatureEnabled}
-              onChange={(e) => saveSettings({ ...settings, temperatureEnabled: e.target.checked })}
-              className="toggle toggle-sm toggle-primary"
-            />
-          </div>
-        </div>
-        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 flex justify-between uppercase tracking-wide">
-          <span>Value</span>
-          <span className={`normal-case tabular-nums ${settings.temperatureEnabled ? 'text-rca-red' : 'text-soft-charcoal/40'}`}>
-            {settings.temperature.toFixed(1)}
-          </span>
-        </label>
-        <input
-          type="range"
-          min="0"
-          max="2"
-          step="0.1"
-          value={settings.temperature}
-          disabled={!settings.temperatureEnabled}
-          onChange={(e) =>
-            saveSettings({ ...settings, temperature: parseFloat(e.target.value) })
+        <button
+          type="button"
+          aria-expanded={settings.advancedSectionExpanded}
+          onClick={() =>
+            saveSettings({
+              ...settings,
+              advancedSectionExpanded: !settings.advancedSectionExpanded
+            })
           }
-          className={`range range-xs range-primary w-full ${settings.temperatureEnabled ? '' : 'opacity-40 cursor-not-allowed'}`}
-        />
-      </div>
-
-      {/* Max Tokens */}
-      <div>
-        <div className="mb-1 flex items-center justify-between">
-          <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
-            Max Tokens
-          </label>
-          <div className="flex items-center gap-2">
-            <span
-              className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
-              title="Sets the assistant response output length."
-              aria-label="Max Tokens help"
-            >
-              <CircleHelp size={12} />
-            </span>
-            <input
-              type="checkbox"
-              checked={settings.maxTokensEnabled}
-              onChange={(e) => saveSettings({ ...settings, maxTokensEnabled: e.target.checked })}
-              className="toggle toggle-sm toggle-primary"
-            />
-          </div>
-        </div>
-        <input
-          type="number"
-          min={1}
-          max={128000}
-          value={settings.maxTokens}
-          disabled={!settings.maxTokensEnabled}
-          onChange={(e) =>
-            saveSettings({ ...settings, maxTokens: parseInt(e.target.value, 10) || 8192 })
-          }
-          className={`input input-sm input-bordered w-full bg-base-100 ${settings.maxTokensEnabled ? '' : 'opacity-40 cursor-not-allowed'}`}
-        />
-      </div>
-
-      {/* Strict Mode */}
-      <div className="flex items-center justify-between py-0.5">
-        <label className="text-[11px] font-medium text-soft-charcoal/60 uppercase tracking-wide">
-          Strict Mode
-        </label>
-        <div className="flex items-center gap-2">
-          <span
-            className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
-            title="Asks for permission on file operations."
-            aria-label="Strict Mode help"
-          >
-            <CircleHelp size={12} />
+          className="divider text-[10px] text-soft-charcoal/30 uppercase tracking-widest my-1 w-full cursor-pointer bg-transparent border-0 p-0 hover:text-soft-charcoal/50 transition-colors"
+        >
+          <span className="inline-flex items-center gap-1">
+            {settings.advancedSectionExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            Advanced
           </span>
-          <input
-            type="checkbox"
-            checked={settings.strictMode}
-            onChange={(e) => saveSettings({ ...settings, strictMode: e.target.checked })}
-            className="toggle toggle-sm toggle-primary"
-          />
-        </div>
-      </div>
+        </button>
 
-      <div className="divider text-[10px] text-soft-charcoal/30 uppercase tracking-widest my-1">Search APIs</div>
+        {settings.advancedSectionExpanded && (
+          <>
+            {/* Reasoning */}
+            <div className="flex items-center justify-between py-0.5">
+              <label className="text-[11px] font-medium text-soft-charcoal/60 uppercase tracking-wide">
+                Reasoning
+              </label>
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+                  title="Allow reasoning effort."
+                  aria-label="Reasoning help"
+                >
+                  <CircleHelp size={12} />
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.reasoningEnabled}
+                  onChange={(e) => saveSettings({ ...settings, reasoningEnabled: e.target.checked })}
+                  className="toggle toggle-sm toggle-primary"
+                />
+              </div>
+            </div>
 
-      {/* Tavily Key */}
-      <div>
-        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
-          Tavily API Key
-        </label>
-        <input
-          type="password"
-          value={settings.tavilyApiKey}
-          onChange={(e) => saveSettings({ ...settings, tavilyApiKey: e.target.value })}
-          placeholder="tvly-..."
-          className="input input-sm input-bordered w-full bg-base-100"
-        />
-      </div>
+            {/* Temperature */}
+            <div>
+              <div className="flex items-center justify-between py-0.5 mb-1">
+                <label className="text-[11px] font-medium text-soft-charcoal/60 uppercase tracking-wide">
+                  Temperature
+                </label>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+                    title="Controls style and creativity."
+                    aria-label="Temperature help"
+                  >
+                    <CircleHelp size={12} />
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={settings.temperatureEnabled}
+                    onChange={(e) => saveSettings({ ...settings, temperatureEnabled: e.target.checked })}
+                    className="toggle toggle-sm toggle-primary"
+                  />
+                </div>
+              </div>
+              <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 flex justify-between uppercase tracking-wide">
+                <span>Value</span>
+                <span className={`normal-case tabular-nums ${settings.temperatureEnabled ? 'text-rca-red' : 'text-soft-charcoal/40'}`}>
+                  {settings.temperature.toFixed(1)}
+                </span>
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={settings.temperature}
+                disabled={!settings.temperatureEnabled}
+                onChange={(e) =>
+                  saveSettings({ ...settings, temperature: parseFloat(e.target.value) })
+                }
+                className={`range range-xs range-primary w-full ${settings.temperatureEnabled ? '' : 'opacity-40 cursor-not-allowed'}`}
+              />
+            </div>
 
-      {/* SerpAPI Key */}
-      <div>
-        <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
-          SerpAPI Key
-        </label>
-        <input
-          type="password"
-          value={settings.serpApiKey}
-          onChange={(e) => saveSettings({ ...settings, serpApiKey: e.target.value })}
-          className="input input-sm input-bordered w-full bg-base-100"
-        />
-      </div>
+            {/* Max Tokens */}
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
+                  Max Tokens
+                </label>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+                    title="Sets the assistant response output length."
+                    aria-label="Max Tokens help"
+                  >
+                    <CircleHelp size={12} />
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={settings.maxTokensEnabled}
+                    onChange={(e) => saveSettings({ ...settings, maxTokensEnabled: e.target.checked })}
+                    className="toggle toggle-sm toggle-primary"
+                  />
+                </div>
+              </div>
+              <input
+                type="number"
+                min={1}
+                max={128000}
+                value={settings.maxTokens}
+                disabled={!settings.maxTokensEnabled}
+                onChange={(e) =>
+                  saveSettings({ ...settings, maxTokens: parseInt(e.target.value, 10) || 8192 })
+                }
+                className={`input input-sm input-bordered w-full bg-base-100 ${settings.maxTokensEnabled ? '' : 'opacity-40 cursor-not-allowed'}`}
+              />
+            </div>
 
-      {/* Org Site */}
-      <div>
-        <div className="mb-1 flex items-center justify-between">
-          <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
-            Org Site
-          </label>
-          <span
-            className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
-            title="Optional. Allows search through a specific source by applying site:example.com."
-            aria-label="Org Site help"
-          >
-            <CircleHelp size={12} />
-          </span>
-        </div>
-        <input
-          type="text"
-          value={settings.orgSite}
-          onChange={(e) => saveSettings({ ...settings, orgSite: e.target.value })}
-          placeholder="example.com"
-          className="input input-sm input-bordered w-full bg-base-100"
-        />
-      </div>
+            {/* Strict Mode */}
+            <div className="flex items-center justify-between py-0.5">
+              <label className="text-[11px] font-medium text-soft-charcoal/60 uppercase tracking-wide">
+                Strict Mode
+              </label>
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+                  title="Asks for permission on file operations."
+                  aria-label="Strict Mode help"
+                >
+                  <CircleHelp size={12} />
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.strictMode}
+                  onChange={(e) => saveSettings({ ...settings, strictMode: e.target.checked })}
+                  className="toggle toggle-sm toggle-primary"
+                />
+              </div>
+            </div>
+          </>
+        )}
 
       </div>
 

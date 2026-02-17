@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type AxiosResponse } from 'axios'
 import {
   BaseLLMProvider,
   type ProviderSendOptions,
@@ -104,7 +104,7 @@ class LMStudioNativeProvider extends BaseLLMProvider {
   }
 
   private async _stream(options: ProviderSendOptions, controller: AbortController): Promise<void> {
-    const { messages, model, temperature, maxTokens, onChunk } = options
+    const { messages, model, temperature, maxTokens, reasoningEnabled, onChunk } = options
 
     const body: Record<string, unknown> = {
       model,
@@ -120,12 +120,36 @@ class LMStudioNativeProvider extends BaseLLMProvider {
       body.max_tokens = maxTokens
     }
 
-    const response = await axios.post(`${this.baseUrl}/chat`, body, {
-      headers: { 'Content-Type': 'application/json' },
-      responseType: 'stream',
-      timeout: 300_000,
-      signal: controller.signal
-    })
+    if (typeof reasoningEnabled === 'boolean') {
+      body.reasoning = reasoningEnabled ? 'on' : 'off'
+    }
+
+    let response: AxiosResponse
+    try {
+      response = await axios.post(`${this.baseUrl}/chat`, body, {
+        headers: { 'Content-Type': 'application/json' },
+        responseType: 'stream',
+        timeout: 300_000,
+        signal: controller.signal
+      })
+    } catch (err) {
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined
+      const canRetryWithoutReasoning = status === 400 && Object.prototype.hasOwnProperty.call(body, 'reasoning')
+
+      if (!canRetryWithoutReasoning) {
+        throw err
+      }
+
+      const fallbackBody = { ...body }
+      delete fallbackBody.reasoning
+
+      response = await axios.post(`${this.baseUrl}/chat`, fallbackBody, {
+        headers: { 'Content-Type': 'application/json' },
+        responseType: 'stream',
+        timeout: 300_000,
+        signal: controller.signal
+      })
+    }
 
     const stream = response.data as AsyncIterable<Buffer>
     let buffer = ''

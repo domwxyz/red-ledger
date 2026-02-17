@@ -12,6 +12,16 @@ export class OpenRouterProvider extends OpenAIProvider {
     super(apiKey, baseUrl)
   }
 
+  protected override buildReasoningControls(reasoningEnabled: boolean | undefined): Record<string, unknown> | undefined {
+    if (typeof reasoningEnabled !== 'boolean') return undefined
+
+    return {
+      reasoning: {
+        enabled: reasoningEnabled
+      }
+    }
+  }
+
   async listModels(): Promise<string[]> {
     try {
       const response = await axios.get(`${this.baseUrl}/models`, {

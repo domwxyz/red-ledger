@@ -91,6 +91,23 @@ function computeBackoffMs(attempt: number): number {
   return Math.min(exponential, MAX_RETRY_DELAY_MS)
 }
 
+function removeReasoningControls(body: Record<string, unknown>): Record<string, unknown> | null {
+  let changed = false
+  const nextBody: Record<string, unknown> = { ...body }
+
+  if ('reasoning_effort' in nextBody) {
+    delete nextBody.reasoning_effort
+    changed = true
+  }
+
+  if ('reasoning' in nextBody) {
+    delete nextBody.reasoning
+    changed = true
+  }
+
+  return changed ? nextBody : null
+}
+
 async function sleep(ms: number, signal: AbortSignal): Promise<void> {
   if (ms <= 0) return
 
@@ -135,6 +152,14 @@ export class OpenAIProvider extends BaseLLMProvider {
     return apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}
   }
 
+  protected buildReasoningControls(reasoningEnabled: boolean | undefined): Record<string, unknown> | undefined {
+    if (reasoningEnabled !== false) return undefined
+
+    // OpenAI-compatible endpoints that support this field can lower/disable
+    // explicit reasoning traces; endpoints that reject it are retried without it.
+    return { reasoning_effort: 'none' }
+  }
+
   sendStreaming(options: ProviderSendOptions): AbortHandle {
     const controller = new AbortController()
 
@@ -152,13 +177,18 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private async _stream(options: ProviderSendOptions, controller: AbortController): Promise<void> {
-    const { messages, model, tools, temperature, maxTokens, extraBody, onChunk } = options
+    const { messages, model, tools, temperature, maxTokens, reasoningEnabled, extraBody, onChunk } = options
 
     const body: Record<string, unknown> = {
       model,
       messages,
       stream: true,
       temperature: temperature ?? 0.7
+    }
+
+    const reasoningControls = this.buildReasoningControls(reasoningEnabled)
+    if (reasoningControls) {
+      Object.assign(body, reasoningControls)
     }
 
     if (extraBody && typeof extraBody === 'object') {
@@ -198,34 +228,54 @@ export class OpenAIProvider extends BaseLLMProvider {
       throw err
     }
 
+    const requestStream = async (requestBody: Record<string, unknown>): Promise<AxiosResponse> => {
+      for (let attempt = 0; attempt <= MAX_429_RETRIES; attempt++) {
+        try {
+          return await axios.post(`${this.baseUrl}/chat/completions`, requestBody, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...this.getAuthHeaders()
+            },
+            responseType: 'stream',
+            timeout: 120_000,
+            signal: controller.signal
+          })
+        } catch (err) {
+          const status = axios.isAxiosError(err) ? err.response?.status : undefined
+          const canRetry = status === 429 && attempt < MAX_429_RETRIES && !controller.signal.aborted
+
+          if (canRetry) {
+            const retryAfterHeader = getHeaderValue(
+              (err as { response?: { headers?: unknown } }).response?.headers,
+              'retry-after'
+            )
+            const retryDelayMs = parseRetryAfterMs(retryAfterHeader) ?? computeBackoffMs(attempt)
+            await sleep(retryDelayMs, controller.signal)
+            continue
+          }
+
+          throw err
+        }
+      }
+
+      throw new Error('API request failed without a response')
+    }
+
     let response: AxiosResponse | null = null
 
-    for (let attempt = 0; attempt <= MAX_429_RETRIES; attempt++) {
-      try {
-        response = await axios.post(`${this.baseUrl}/chat/completions`, body, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...this.getAuthHeaders()
-          },
-          responseType: 'stream',
-          timeout: 120_000,
-          signal: controller.signal
-        })
-        break
-      } catch (err) {
-        const status = axios.isAxiosError(err) ? err.response?.status : undefined
-        const canRetry = status === 429 && attempt < MAX_429_RETRIES && !controller.signal.aborted
+    try {
+      response = await requestStream(body)
+    } catch (err) {
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined
+      const fallbackBody = status === 400 ? removeReasoningControls(body) : null
 
-        if (canRetry) {
-          const retryAfterHeader = getHeaderValue(
-            (err as { response?: { headers?: unknown } }).response?.headers,
-            'retry-after'
-          )
-          const retryDelayMs = parseRetryAfterMs(retryAfterHeader) ?? computeBackoffMs(attempt)
-          await sleep(retryDelayMs, controller.signal)
-          continue
+      if (fallbackBody) {
+        try {
+          response = await requestStream(fallbackBody)
+        } catch (retryErr) {
+          await throwAxiosError(retryErr)
         }
-
+      } else {
         await throwAxiosError(err)
       }
     }

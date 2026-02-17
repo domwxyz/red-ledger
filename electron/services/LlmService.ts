@@ -207,6 +207,7 @@ export class LlmService {
           tools,
           temperature: request.temperature,
           maxTokens: request.maxTokens ?? (settings.maxTokensEnabled ? settings.maxTokens : undefined),
+          reasoningEnabled: settings.reasoningEnabled,
           onChunk: (chunk: StreamChunk) => {
             switch (chunk.type) {
               case 'thinking':

@@ -17,6 +17,7 @@ export interface Settings {
   activeProvider: ProviderName
   providers: Record<ProviderName, ProviderSettings>
   defaultModel: string
+  reasoningEnabled: boolean
   temperatureEnabled: boolean
   temperature: number     // 0.0–2.0
   maxTokensEnabled: boolean
@@ -27,6 +28,9 @@ export interface Settings {
   serpApiKey: string
   orgSite: string
   lastWorkspacePath: string | null
+  providerSectionExpanded: boolean
+  searchSectionExpanded: boolean
+  advancedSectionExpanded: boolean
 }
 
 // ─── Conversations ───────────────────────────────────────────────────────────

@@ -59,6 +59,7 @@ export interface ProviderSendOptions {
   tools: ToolDefinition[]
   temperature?: number
   maxTokens?: number
+  reasoningEnabled?: boolean
   extraBody?: Record<string, unknown>
   onChunk: (chunk: StreamChunk) => void
 }

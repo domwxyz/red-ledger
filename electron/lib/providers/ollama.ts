@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type AxiosResponse } from 'axios'
 import {
   BaseLLMProvider,
   type ProviderSendOptions,
@@ -83,7 +83,7 @@ export class OllamaProvider extends BaseLLMProvider {
   }
 
   private async _stream(options: ProviderSendOptions, controller: AbortController): Promise<void> {
-    const { messages, model, tools, temperature, onChunk } = options
+    const { messages, model, tools, temperature, reasoningEnabled, onChunk } = options
 
     // Convert messages to Ollama format
     // Ollama uses the same role/content structure but uses 'tool' role differently
@@ -104,17 +104,41 @@ export class OllamaProvider extends BaseLLMProvider {
       }
     }
 
+    if (typeof reasoningEnabled === 'boolean') {
+      body.think = reasoningEnabled
+    }
+
     // Include tools if any are defined — newer Ollama versions support this
     if (tools.length > 0) {
       body.tools = tools
     }
 
-    const response = await axios.post(`${this.baseUrl}/api/chat`, body, {
-      headers: { 'Content-Type': 'application/json' },
-      responseType: 'stream',
-      timeout: 300_000,
-      signal: controller.signal
-    })
+    let response: AxiosResponse
+    try {
+      response = await axios.post(`${this.baseUrl}/api/chat`, body, {
+        headers: { 'Content-Type': 'application/json' },
+        responseType: 'stream',
+        timeout: 300_000,
+        signal: controller.signal
+      })
+    } catch (err) {
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined
+      const canRetryWithoutThink = status === 400 && Object.prototype.hasOwnProperty.call(body, 'think')
+
+      if (!canRetryWithoutThink) {
+        throw err
+      }
+
+      const fallbackBody = { ...body }
+      delete fallbackBody.think
+
+      response = await axios.post(`${this.baseUrl}/api/chat`, fallbackBody, {
+        headers: { 'Content-Type': 'application/json' },
+        responseType: 'stream',
+        timeout: 300_000,
+        signal: controller.signal
+      })
+    }
 
     const stream = response.data as AsyncIterable<Buffer>
     let buffer = ''

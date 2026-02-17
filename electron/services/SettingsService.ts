@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS: Settings = {
     }
   },
   defaultModel: DEFAULT_FALLBACK_MODEL,
+  reasoningEnabled: true,
   temperatureEnabled: false,
   temperature: 1.0,
   maxTokensEnabled: false,
@@ -44,7 +45,10 @@ const DEFAULT_SETTINGS: Settings = {
   tavilyApiKey: '',
   serpApiKey: '',
   orgSite: '',
-  lastWorkspacePath: null
+  lastWorkspacePath: null,
+  providerSectionExpanded: true,
+  searchSectionExpanded: true,
+  advancedSectionExpanded: false
 }
 
 const PROVIDER_NAMES: ProviderName[] = ['openai', 'openrouter', 'ollama', 'lmstudio']
@@ -171,6 +175,10 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     ? s.temperatureEnabled
     : DEFAULT_SETTINGS.temperatureEnabled
 
+  const reasoningEnabled = typeof s.reasoningEnabled === 'boolean'
+    ? s.reasoningEnabled
+    : DEFAULT_SETTINGS.reasoningEnabled
+
   // Clamp maxTokens: 1–128000
   const maxTokens = typeof s.maxTokens === 'number' && !isNaN(s.maxTokens)
     ? Math.max(1, Math.min(128000, Math.floor(s.maxTokens)))
@@ -184,6 +192,7 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     activeProvider,
     providers,
     defaultModel,
+    reasoningEnabled,
     temperatureEnabled,
     temperature,
     maxTokensEnabled,
@@ -195,7 +204,16 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     orgSite: typeof s.orgSite === 'string' ? s.orgSite : DEFAULT_SETTINGS.orgSite,
     lastWorkspacePath: typeof s.lastWorkspacePath === 'string'
       ? s.lastWorkspacePath
-      : null
+      : null,
+    providerSectionExpanded: typeof s.providerSectionExpanded === 'boolean'
+      ? s.providerSectionExpanded
+      : DEFAULT_SETTINGS.providerSectionExpanded,
+    searchSectionExpanded: typeof s.searchSectionExpanded === 'boolean'
+      ? s.searchSectionExpanded
+      : DEFAULT_SETTINGS.searchSectionExpanded,
+    advancedSectionExpanded: typeof s.advancedSectionExpanded === 'boolean'
+      ? s.advancedSectionExpanded
+      : DEFAULT_SETTINGS.advancedSectionExpanded
   }
 }
 

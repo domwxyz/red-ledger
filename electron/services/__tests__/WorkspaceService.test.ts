@@ -14,6 +14,7 @@ const BASE_SETTINGS: Settings = {
     lmstudio: { apiKey: '', baseUrl: 'http://localhost:1234', models: [], compatibility: 'openai' }
   },
   defaultModel: 'gpt-4',
+  reasoningEnabled: true,
   temperatureEnabled: false,
   temperature: 0.7,
   maxTokensEnabled: false,
@@ -23,7 +24,10 @@ const BASE_SETTINGS: Settings = {
   tavilyApiKey: '',
   serpApiKey: '',
   orgSite: '',
-  lastWorkspacePath: null
+  lastWorkspacePath: null,
+  providerSectionExpanded: true,
+  searchSectionExpanded: true,
+  advancedSectionExpanded: false
 }
 
 describe('WorkspaceService.writeFile', () => {

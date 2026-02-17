@@ -6,6 +6,7 @@ describe('sanitizeSettings', () => {
   it('returns defaults for undefined input', () => {
     const result = sanitizeSettings(undefined)
     expect(result.activeProvider).toBe('openrouter')
+    expect(result.reasoningEnabled).toBe(true)
     expect(result.temperatureEnabled).toBe(false)
     expect(result.temperature).toBe(1.0)
     expect(result.maxTokensEnabled).toBe(false)
@@ -15,11 +16,15 @@ describe('sanitizeSettings', () => {
     expect(result.orgSite).toBe('')
     expect(result.defaultModel).toBe('moonshotai/kimi-k2.5')
     expect(result.providers.openrouter.selectedModel).toBe('moonshotai/kimi-k2.5')
+    expect(result.providerSectionExpanded).toBe(true)
+    expect(result.searchSectionExpanded).toBe(true)
+    expect(result.advancedSectionExpanded).toBe(false)
   })
 
   it('returns defaults for empty object', () => {
     const result = sanitizeSettings({})
     expect(result.activeProvider).toBe('openrouter')
+    expect(result.reasoningEnabled).toBe(true)
     expect(result.temperatureEnabled).toBe(false)
     expect(result.maxTokensEnabled).toBe(false)
     expect(result.providers.openai.baseUrl).toBe('https://api.openai.com/v1')
@@ -28,11 +33,23 @@ describe('sanitizeSettings', () => {
     expect(result.providers.lmstudio.baseUrl).toBe('http://localhost:1234')
     expect(result.providers.lmstudio.compatibility).toBe('openai')
     expect(result.providers.openrouter.selectedModel).toBe('moonshotai/kimi-k2.5')
+    expect(result.providerSectionExpanded).toBe(true)
+    expect(result.searchSectionExpanded).toBe(true)
+    expect(result.advancedSectionExpanded).toBe(false)
   })
 
   it('preserves valid temperatureEnabled value', () => {
     expect(sanitizeSettings({ temperatureEnabled: true } as any).temperatureEnabled).toBe(true)
     expect(sanitizeSettings({ temperatureEnabled: false } as any).temperatureEnabled).toBe(false)
+  })
+
+  it('preserves valid reasoningEnabled value', () => {
+    expect(sanitizeSettings({ reasoningEnabled: true } as any).reasoningEnabled).toBe(true)
+    expect(sanitizeSettings({ reasoningEnabled: false } as any).reasoningEnabled).toBe(false)
+  })
+
+  it('defaults reasoningEnabled for invalid input', () => {
+    expect(sanitizeSettings({ reasoningEnabled: 'yes' as any } as any).reasoningEnabled).toBe(true)
   })
 
   it('defaults temperatureEnabled for invalid input', () => {
@@ -181,5 +198,29 @@ describe('sanitizeSettings', () => {
 
   it('defaults orgSite for non-string input', () => {
     expect(sanitizeSettings({ orgSite: 42 as any } as any).orgSite).toBe('')
+  })
+
+  it('preserves section visibility preferences when boolean', () => {
+    const result = sanitizeSettings({
+      providerSectionExpanded: false,
+      searchSectionExpanded: false,
+      advancedSectionExpanded: true
+    } as any)
+
+    expect(result.providerSectionExpanded).toBe(false)
+    expect(result.searchSectionExpanded).toBe(false)
+    expect(result.advancedSectionExpanded).toBe(true)
+  })
+
+  it('defaults section visibility preferences for invalid input', () => {
+    const result = sanitizeSettings({
+      providerSectionExpanded: 'yes',
+      searchSectionExpanded: 1,
+      advancedSectionExpanded: null
+    } as any)
+
+    expect(result.providerSectionExpanded).toBe(true)
+    expect(result.searchSectionExpanded).toBe(true)
+    expect(result.advancedSectionExpanded).toBe(false)
   })
 })
