@@ -2,8 +2,14 @@ import { useRef, useEffect, useCallback } from 'react'
 import { useConversationStore } from '@/store'
 import { MessageBubble } from './MessageBubble'
 
-/** Pixel threshold — if the user is within this distance of the bottom, auto-scroll continues. */
-const NEAR_BOTTOM_PX = 150
+/**
+ * Adaptive near-bottom threshold:
+ * - small chats can break away quickly (percentage of available scroll)
+ * - long chats keep a modest sticky window near the bottom
+ */
+const NEAR_BOTTOM_RATIO = 0.20
+const NEAR_BOTTOM_MIN_PX = 16
+const NEAR_BOTTOM_MAX_PX = 96
 
 interface MessageListProps {
   isStreaming: boolean
@@ -20,12 +26,20 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry, onEdit 
   const bottomRef = useRef<HTMLDivElement>(null)
   const prevMessageCountRef = useRef(0)
 
+  const getNearBottomThresholdPx = useCallback((el: HTMLDivElement) => {
+    const scrollableHeight = Math.max(0, el.scrollHeight - el.clientHeight)
+    const adaptiveThreshold = scrollableHeight * NEAR_BOTTOM_RATIO
+    return Math.max(NEAR_BOTTOM_MIN_PX, Math.min(NEAR_BOTTOM_MAX_PX, adaptiveThreshold))
+  }, [])
+
   /** Check if the scroll container is near the bottom. */
   const isNearBottom = useCallback(() => {
     const el = scrollContainerRef.current
     if (!el) return true
-    return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX
-  }, [])
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    return distanceFromBottom <= getNearBottomThresholdPx(el)
+  }, [getNearBottomThresholdPx])
 
   const handleFork = useCallback(async (messageId: string) => {
     await forkConversationFromMessage(messageId)
@@ -59,7 +73,7 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry, onEdit 
     )
   }
 
-  // Find the last user message index — retry attaches there
+  // Find the last user message index - retry attaches there
   let lastUserIdx = -1
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role === 'user') {
