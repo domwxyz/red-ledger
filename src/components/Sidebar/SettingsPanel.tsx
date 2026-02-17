@@ -413,55 +413,78 @@ export function SettingsPanel() {
 
         {settings.searchSectionExpanded && (
           <>
-            {/* Tavily Key */}
-            <div>
-              <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
-                Tavily API Key
+            <div className="flex items-center justify-between py-0.5">
+              <label className="text-[11px] font-medium text-soft-charcoal/60 uppercase tracking-wide">
+                Search
               </label>
-              <input
-                type="password"
-                value={settings.tavilyApiKey}
-                onChange={(e) => saveSettings({ ...settings, tavilyApiKey: e.target.value })}
-                placeholder="tvly-..."
-                className="input input-sm input-bordered w-full bg-base-100"
-              />
-            </div>
-
-            {/* SerpAPI Key */}
-            <div>
-              <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
-                SerpAPI Key
-              </label>
-              <input
-                type="password"
-                value={settings.serpApiKey}
-                onChange={(e) => saveSettings({ ...settings, serpApiKey: e.target.value })}
-                className="input input-sm input-bordered w-full bg-base-100"
-              />
-            </div>
-
-            {/* Org Site */}
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
-                  Org Site
-                </label>
+              <div className="flex items-center gap-2">
                 <span
                   className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
-                  title="Optional. Allows search through a specific source by applying site:example.com."
-                  aria-label="Org Site help"
+                  title="Enable web search through Tavily or SerpApi."
+                  aria-label="Search tools help"
                 >
                   <CircleHelp size={12} />
                 </span>
+                <input
+                  type="checkbox"
+                  checked={settings.searchToolsEnabled}
+                  onChange={(e) => saveSettings({ ...settings, searchToolsEnabled: e.target.checked })}
+                  className="toggle toggle-sm toggle-primary"
+                />
               </div>
-              <input
-                type="text"
-                value={settings.orgSite}
-                onChange={(e) => saveSettings({ ...settings, orgSite: e.target.value })}
-                placeholder="example.com"
-                className="input input-sm input-bordered w-full bg-base-100"
-              />
             </div>
+
+            <fieldset disabled={!settings.searchToolsEnabled} className="space-y-3 disabled:opacity-45">
+              {/* Tavily Key */}
+              <div>
+                <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
+                  Tavily API Key
+                </label>
+                <input
+                  type="password"
+                  value={settings.tavilyApiKey}
+                  onChange={(e) => saveSettings({ ...settings, tavilyApiKey: e.target.value })}
+                  placeholder="tvly-..."
+                  className="input input-sm input-bordered w-full bg-base-100"
+                />
+              </div>
+
+              {/* SerpAPI Key */}
+              <div>
+                <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 block uppercase tracking-wide">
+                  SerpAPI Key
+                </label>
+                <input
+                  type="password"
+                  value={settings.serpApiKey}
+                  onChange={(e) => saveSettings({ ...settings, serpApiKey: e.target.value })}
+                  className="input input-sm input-bordered w-full bg-base-100"
+                />
+              </div>
+
+              {/* Org Site */}
+              <div>
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
+                    Org Site
+                  </label>
+                  <span
+                    className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+                    title="Optional. Allows search through a specific source by applying site:example.com."
+                    aria-label="Org Site help"
+                  >
+                    <CircleHelp size={12} />
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={settings.orgSite}
+                  onChange={(e) => saveSettings({ ...settings, orgSite: e.target.value })}
+                  placeholder="example.com"
+                  className="input input-sm input-bordered w-full bg-base-100"
+                />
+              </div>
+            </fieldset>
           </>
         )}
 

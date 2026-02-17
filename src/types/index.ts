@@ -27,6 +27,7 @@ export interface Settings {
   tavilyApiKey: string
   serpApiKey: string
   orgSite: string
+  searchToolsEnabled: boolean
   lastWorkspacePath: string | null
   providerSectionExpanded: boolean
   searchSectionExpanded: boolean

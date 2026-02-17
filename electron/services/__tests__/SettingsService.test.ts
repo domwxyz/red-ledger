@@ -14,6 +14,7 @@ describe('sanitizeSettings', () => {
     expect(result.strictMode).toBe(false)
     expect(result.darkMode).toBe(false)
     expect(result.orgSite).toBe('')
+    expect(result.searchToolsEnabled).toBe(true)
     expect(result.defaultModel).toBe('moonshotai/kimi-k2.5')
     expect(result.providers.openrouter.selectedModel).toBe('moonshotai/kimi-k2.5')
     expect(result.providerSectionExpanded).toBe(true)
@@ -33,6 +34,7 @@ describe('sanitizeSettings', () => {
     expect(result.providers.lmstudio.baseUrl).toBe('http://localhost:1234')
     expect(result.providers.lmstudio.compatibility).toBe('openai')
     expect(result.providers.openrouter.selectedModel).toBe('moonshotai/kimi-k2.5')
+    expect(result.searchToolsEnabled).toBe(true)
     expect(result.providerSectionExpanded).toBe(true)
     expect(result.searchSectionExpanded).toBe(true)
     expect(result.advancedSectionExpanded).toBe(false)
@@ -198,6 +200,15 @@ describe('sanitizeSettings', () => {
 
   it('defaults orgSite for non-string input', () => {
     expect(sanitizeSettings({ orgSite: 42 as any } as any).orgSite).toBe('')
+  })
+
+  it('preserves searchToolsEnabled when boolean', () => {
+    expect(sanitizeSettings({ searchToolsEnabled: true } as any).searchToolsEnabled).toBe(true)
+    expect(sanitizeSettings({ searchToolsEnabled: false } as any).searchToolsEnabled).toBe(false)
+  })
+
+  it('defaults searchToolsEnabled for invalid input', () => {
+    expect(sanitizeSettings({ searchToolsEnabled: 'yes' as any } as any).searchToolsEnabled).toBe(true)
   })
 
   it('preserves section visibility preferences when boolean', () => {

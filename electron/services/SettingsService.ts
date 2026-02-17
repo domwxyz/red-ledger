@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS: Settings = {
   tavilyApiKey: '',
   serpApiKey: '',
   orgSite: '',
+  searchToolsEnabled: true,
   lastWorkspacePath: null,
   providerSectionExpanded: true,
   searchSectionExpanded: true,
@@ -202,6 +203,9 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     tavilyApiKey: typeof s.tavilyApiKey === 'string' ? s.tavilyApiKey : DEFAULT_SETTINGS.tavilyApiKey,
     serpApiKey: typeof s.serpApiKey === 'string' ? s.serpApiKey : DEFAULT_SETTINGS.serpApiKey,
     orgSite: typeof s.orgSite === 'string' ? s.orgSite : DEFAULT_SETTINGS.orgSite,
+    searchToolsEnabled: typeof s.searchToolsEnabled === 'boolean'
+      ? s.searchToolsEnabled
+      : DEFAULT_SETTINGS.searchToolsEnabled,
     lastWorkspacePath: typeof s.lastWorkspacePath === 'string'
       ? s.lastWorkspacePath
       : null,

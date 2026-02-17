@@ -22,6 +22,7 @@ import '../lib/providers/lmstudio'
 const MAX_TOOL_ROUNDS = 10
 const DEFAULT_TITLE_MAX_TOKENS = 24
 const TITLE_TEMPERATURE = 0.2
+const SEARCH_TOOLS_REQUIRING_API_KEYS = new Set(['web_search', 'org_search'])
 const TITLE_GENERATION_SYSTEM_PROMPT =
   'Generate a concise chat title for the provided user prompt. Return only the title text in 2 to 6 words. No reasoning, no prefix, no quotes, no markdown, and no trailing punctuation.'
 
@@ -192,7 +193,10 @@ export class LlmService {
       messages.push({ role: msg.role, content: msg.content })
     }
 
-    const tools = getToolDefinitions()
+    const tools = getToolDefinitions().filter((tool) =>
+      settings.searchToolsEnabled || !SEARCH_TOOLS_REQUIRING_API_KEYS.has(tool.function.name)
+    )
+    const availableToolNames = new Set(tools.map((tool) => tool.function.name))
 
     let toolRound = 0
 
@@ -274,7 +278,17 @@ export class LlmService {
 
       // Execute each tool call and collect results
       for (const tc of collectedToolCalls) {
-        const executed = await toolExecutor(tc)
+        const executed = availableToolNames.has(tc.name)
+          ? await toolExecutor(tc)
+          : {
+            ...tc,
+            result: {
+              error: !settings.searchToolsEnabled && SEARCH_TOOLS_REQUIRING_API_KEYS.has(tc.name)
+                ? `Tool "${tc.name}" is disabled in Settings.`
+                : `Tool "${tc.name}" is not available for this request.`,
+              code: 'PERMISSION_DENIED'
+            }
+          }
 
         // Send tool result chunk to renderer
         sink.send({ type: 'tool_result', toolCall: executed })

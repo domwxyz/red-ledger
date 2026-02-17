@@ -24,6 +24,7 @@ const BASE_SETTINGS: Settings = {
   tavilyApiKey: '',
   serpApiKey: '',
   orgSite: '',
+  searchToolsEnabled: true,
   lastWorkspacePath: null,
   providerSectionExpanded: true,
   searchSectionExpanded: true,
