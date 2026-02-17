@@ -16,6 +16,7 @@ const BASE_SETTINGS: Settings = {
   defaultModel: 'gpt-4',
   temperatureEnabled: false,
   temperature: 0.7,
+  maxTokensEnabled: false,
   maxTokens: 4096,
   strictMode: false,
   darkMode: false,

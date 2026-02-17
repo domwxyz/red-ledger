@@ -379,12 +379,21 @@ export function SettingsPanel() {
           <label className="text-[11px] font-medium text-soft-charcoal/60 uppercase tracking-wide">
             Temperature
           </label>
-          <input
-            type="checkbox"
-            checked={settings.temperatureEnabled}
-            onChange={(e) => saveSettings({ ...settings, temperatureEnabled: e.target.checked })}
-            className="toggle toggle-sm toggle-primary"
-          />
+          <div className="flex items-center gap-2">
+            <span
+              className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+              title="Controls style and creativity."
+              aria-label="Temperature help"
+            >
+              <CircleHelp size={12} />
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.temperatureEnabled}
+              onChange={(e) => saveSettings({ ...settings, temperatureEnabled: e.target.checked })}
+              className="toggle toggle-sm toggle-primary"
+            />
+          </div>
         </div>
         <label className="text-[11px] font-medium text-soft-charcoal/60 mb-1 flex justify-between uppercase tracking-wide">
           <span>Value</span>
@@ -412,23 +421,32 @@ export function SettingsPanel() {
           <label className="text-[11px] font-medium text-soft-charcoal/60 block uppercase tracking-wide">
             Max Tokens
           </label>
-          <span
-            className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
-            title="Sets the assistant response output length."
-            aria-label="Max Tokens help"
-          >
-            <CircleHelp size={12} />
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+              title="Sets the assistant response output length."
+              aria-label="Max Tokens help"
+            >
+              <CircleHelp size={12} />
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.maxTokensEnabled}
+              onChange={(e) => saveSettings({ ...settings, maxTokensEnabled: e.target.checked })}
+              className="toggle toggle-sm toggle-primary"
+            />
+          </div>
         </div>
         <input
           type="number"
           min={1}
           max={128000}
           value={settings.maxTokens}
+          disabled={!settings.maxTokensEnabled}
           onChange={(e) =>
-            saveSettings({ ...settings, maxTokens: parseInt(e.target.value) || 4096 })
+            saveSettings({ ...settings, maxTokens: parseInt(e.target.value, 10) || 8192 })
           }
-          className="input input-sm input-bordered w-full bg-base-100"
+          className={`input input-sm input-bordered w-full bg-base-100 ${settings.maxTokensEnabled ? '' : 'opacity-40 cursor-not-allowed'}`}
         />
       </div>
 
@@ -437,12 +455,21 @@ export function SettingsPanel() {
         <label className="text-[11px] font-medium text-soft-charcoal/60 uppercase tracking-wide">
           Strict Mode
         </label>
-        <input
-          type="checkbox"
-          checked={settings.strictMode}
-          onChange={(e) => saveSettings({ ...settings, strictMode: e.target.checked })}
-          className="toggle toggle-sm toggle-primary"
-        />
+        <div className="flex items-center gap-2">
+          <span
+            className="text-soft-charcoal/40 hover:text-soft-charcoal/60 cursor-help"
+            title="Asks for permission on file operations."
+            aria-label="Strict Mode help"
+          >
+            <CircleHelp size={12} />
+          </span>
+          <input
+            type="checkbox"
+            checked={settings.strictMode}
+            onChange={(e) => saveSettings({ ...settings, strictMode: e.target.checked })}
+            className="toggle toggle-sm toggle-primary"
+          />
+        </div>
       </div>
 
       <div className="divider text-[10px] text-soft-charcoal/30 uppercase tracking-widest my-1">Search APIs</div>

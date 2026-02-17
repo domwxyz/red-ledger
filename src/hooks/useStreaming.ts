@@ -286,7 +286,7 @@ export function useStreaming() {
         model: lockedModel,
         provider: lockedProvider,
         ...(currentSettings.temperatureEnabled ? { temperature: currentSettings.temperature } : {}),
-        maxTokens: currentSettings.maxTokens
+        ...(currentSettings.maxTokensEnabled ? { maxTokens: currentSettings.maxTokens } : {})
       }
 
       // 3. Create a placeholder assistant message in the store

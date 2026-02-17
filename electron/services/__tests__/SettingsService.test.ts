@@ -8,6 +8,7 @@ describe('sanitizeSettings', () => {
     expect(result.activeProvider).toBe('openrouter')
     expect(result.temperatureEnabled).toBe(false)
     expect(result.temperature).toBe(1.0)
+    expect(result.maxTokensEnabled).toBe(false)
     expect(result.maxTokens).toBe(8192)
     expect(result.strictMode).toBe(false)
     expect(result.darkMode).toBe(false)
@@ -20,6 +21,7 @@ describe('sanitizeSettings', () => {
     const result = sanitizeSettings({})
     expect(result.activeProvider).toBe('openrouter')
     expect(result.temperatureEnabled).toBe(false)
+    expect(result.maxTokensEnabled).toBe(false)
     expect(result.providers.openai.baseUrl).toBe('https://api.openai.com/v1')
     expect(result.providers.openrouter.baseUrl).toBe('https://openrouter.ai/api/v1')
     expect(result.providers.ollama.baseUrl).toBe('http://localhost:11434')
@@ -35,6 +37,15 @@ describe('sanitizeSettings', () => {
 
   it('defaults temperatureEnabled for invalid input', () => {
     expect(sanitizeSettings({ temperatureEnabled: 'yes' as any } as any).temperatureEnabled).toBe(false)
+  })
+
+  it('preserves valid maxTokensEnabled value', () => {
+    expect(sanitizeSettings({ maxTokensEnabled: true } as any).maxTokensEnabled).toBe(true)
+    expect(sanitizeSettings({ maxTokensEnabled: false } as any).maxTokensEnabled).toBe(false)
+  })
+
+  it('defaults maxTokensEnabled for invalid input', () => {
+    expect(sanitizeSettings({ maxTokensEnabled: 'yes' as any } as any).maxTokensEnabled).toBe(false)
   })
 
   it('preserves valid darkMode value', () => {

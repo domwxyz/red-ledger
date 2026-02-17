@@ -19,6 +19,7 @@ export interface Settings {
   defaultModel: string
   temperatureEnabled: boolean
   temperature: number     // 0.0–2.0
+  maxTokensEnabled: boolean
   maxTokens: number       // 1–128000
   strictMode: boolean
   darkMode: boolean

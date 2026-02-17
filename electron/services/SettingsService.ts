@@ -37,6 +37,7 @@ const DEFAULT_SETTINGS: Settings = {
   defaultModel: DEFAULT_FALLBACK_MODEL,
   temperatureEnabled: false,
   temperature: 1.0,
+  maxTokensEnabled: false,
   maxTokens: 8192,
   strictMode: false,
   darkMode: false,
@@ -175,12 +176,17 @@ export function sanitizeSettings(settings: Partial<Settings> | undefined): Setti
     ? Math.max(1, Math.min(128000, Math.floor(s.maxTokens)))
     : DEFAULT_SETTINGS.maxTokens
 
+  const maxTokensEnabled = typeof s.maxTokensEnabled === 'boolean'
+    ? s.maxTokensEnabled
+    : DEFAULT_SETTINGS.maxTokensEnabled
+
   return {
     activeProvider,
     providers,
     defaultModel,
     temperatureEnabled,
     temperature,
+    maxTokensEnabled,
     maxTokens,
     strictMode: typeof s.strictMode === 'boolean' ? s.strictMode : DEFAULT_SETTINGS.strictMode,
     darkMode: typeof s.darkMode === 'boolean' ? s.darkMode : DEFAULT_SETTINGS.darkMode,
