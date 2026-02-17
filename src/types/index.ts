@@ -35,6 +35,7 @@ export interface Conversation {
   title: string
   model: string
   provider: ProviderName
+  isPinned: boolean
   createdAt: number
   updatedAt: number
   workspacePath: string | null

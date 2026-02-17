@@ -295,6 +295,9 @@ export class SearchService {
     if (!normalizedSite || /\bsite:/i.test(trimmedQuery)) {
       return trimmedQuery
     }
+    if (!trimmedQuery) {
+      return `site:${normalizedSite}`
+    }
     return `${trimmedQuery} site:${normalizedSite}`
   }
 
@@ -307,7 +310,19 @@ export class SearchService {
     if (!withoutPrefix) return null
 
     const [firstToken] = withoutPrefix.split(/\s+/)
-    return firstToken || null
+    if (!firstToken) return null
+
+    const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(firstToken)
+      ? firstToken
+      : `https://${firstToken}`
+
+    try {
+      const parsed = new URL(candidate)
+      return parsed.hostname.trim().toLowerCase() || null
+    } catch {
+      const fallbackHost = firstToken.split('/')[0]?.trim().toLowerCase()
+      return fallbackHost || null
+    }
   }
 
   private async searchTavily(

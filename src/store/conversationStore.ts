@@ -3,8 +3,12 @@ import type { Conversation, Message } from '@/types'
 import { formatError } from '@/lib/errors'
 import { notify } from '@/lib/notify'
 
-function sortConversationsByUpdatedAt(conversations: Conversation[]): Conversation[] {
-  return [...conversations].sort((a, b) => b.updatedAt - a.updatedAt)
+function sortConversationsByPriority(conversations: Conversation[]): Conversation[] {
+  return [...conversations].sort((a, b) => {
+    const pinnedDelta = Number(b.isPinned) - Number(a.isPinned)
+    if (pinnedDelta !== 0) return pinnedDelta
+    return b.updatedAt - a.updatedAt
+  })
 }
 
 interface ConversationState {
@@ -18,6 +22,7 @@ interface ConversationState {
   forkConversationFromMessage: (messageId: string) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   renameConversation: (id: string, title: string) => Promise<void>
+  setConversationPinned: (id: string, isPinned: boolean) => Promise<void>
   setActiveConversation: (id: string | null) => Promise<void>
   loadMessages: (conversationId: string) => Promise<void>
   addMessage: (data: Omit<Message, 'id' | 'createdAt' | 'timestamp'>) => Promise<Message>
@@ -36,7 +41,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     if (!window.redLedger) return
     try {
       const conversations = await window.redLedger.listConversations()
-      set({ conversations })
+      set({ conversations: sortConversationsByPriority(conversations) })
     } catch (err) {
       notify({ type: 'error', message: formatError(err) })
     }
@@ -45,9 +50,9 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   createConversation: async (partial) => {
     if (!window.redLedger) throw new Error('API not available')
     try {
-      const conversation = await window.redLedger.createConversation(partial || {})
+      const conversation = await window.redLedger.createConversation(partial ?? {})
       set((state) => ({
-        conversations: sortConversationsByUpdatedAt([conversation, ...state.conversations]),
+        conversations: sortConversationsByPriority([conversation, ...state.conversations]),
         activeConversationId: conversation.id,
         messages: []
       }))
@@ -72,7 +77,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       ])
 
       set({
-        conversations,
+        conversations: sortConversationsByPriority(conversations),
         activeConversationId: forkedConversation.id,
         messages,
         isLoadingMessages: false
@@ -104,9 +109,25 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       await window.redLedger.updateConversation(id, { title })
       const updatedAt = Date.now()
       set((state) => ({
-        conversations: sortConversationsByUpdatedAt(
+        conversations: sortConversationsByPriority(
           state.conversations.map((c) =>
             c.id === id ? { ...c, title, updatedAt } : c
+          )
+        )
+      }))
+    } catch (err) {
+      notify({ type: 'error', message: formatError(err) })
+    }
+  },
+
+  setConversationPinned: async (id, isPinned) => {
+    if (!window.redLedger) return
+    try {
+      await window.redLedger.updateConversation(id, { isPinned })
+      set((state) => ({
+        conversations: sortConversationsByPriority(
+          state.conversations.map((c) =>
+            c.id === id ? { ...c, isPinned } : c
           )
         )
       }))
@@ -145,7 +166,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       const updatedAt = message.createdAt
       set((state) => ({
         messages: [...state.messages, message],
-        conversations: sortConversationsByUpdatedAt(
+        conversations: sortConversationsByPriority(
           state.conversations.map((c) =>
             c.id === data.conversationId ? { ...c, updatedAt } : c
           )
@@ -161,7 +182,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
   touchConversation: (id, updatedAt = Date.now()) => {
     set((state) => ({
-      conversations: sortConversationsByUpdatedAt(
+      conversations: sortConversationsByPriority(
         state.conversations.map((c) =>
           c.id === id ? { ...c, updatedAt } : c
         )

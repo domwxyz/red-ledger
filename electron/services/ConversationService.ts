@@ -69,6 +69,7 @@ export class ConversationService {
         model TEXT NOT NULL DEFAULT 'gpt-4',
         provider TEXT NOT NULL DEFAULT 'openai'
           CHECK(provider IN ('openai', 'openrouter', 'ollama', 'lmstudio')),
+        is_pinned INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         workspace_path TEXT
@@ -91,11 +92,15 @@ export class ConversationService {
       CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
     `)
 
-    // Migration path for existing databases created before attachments support.
-    const columns = this.db.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>
-    if (!columns.some((column) => column.name === 'attachments')) {
-      this.db.exec('ALTER TABLE messages ADD COLUMN attachments TEXT')
+    // Migration path for existing databases created before pinning support.
+    const conversationColumns = this.db.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>
+    if (!conversationColumns.some((column) => column.name === 'is_pinned')) {
+      this.db.exec('ALTER TABLE conversations ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0')
     }
+
+    this.db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_conversations_pinned_updated ON conversations(is_pinned DESC, updated_at DESC)'
+    )
   }
 
   // ─── Column Mapping ───────────────────────────────────────────────────────
@@ -106,6 +111,7 @@ export class ConversationService {
       title: row.title as string,
       model: row.model as string,
       provider: row.provider as Conversation['provider'],
+      isPinned: Boolean(row.is_pinned),
       createdAt: row.created_at as number,
       updatedAt: row.updated_at as number,
       workspacePath: row.workspace_path as string | null
@@ -133,8 +139,8 @@ export class ConversationService {
       role: row.role as Message['role'],
       content: row.content as string,
       attachments,
-      thinking: row.thinking as string | undefined,
-      toolCalls: row.tool_calls as string | undefined,
+      thinking: typeof row.thinking === 'string' ? row.thinking : undefined,
+      toolCalls: typeof row.tool_calls === 'string' ? row.tool_calls : undefined,
       timestamp: row.timestamp as string,
       createdAt: row.created_at as number
     }
@@ -162,7 +168,7 @@ export class ConversationService {
   listConversations(): Conversation[] {
     const rows = this.stmt(
       'listConversations',
-      'SELECT * FROM conversations ORDER BY updated_at DESC'
+      'SELECT * FROM conversations ORDER BY is_pinned DESC, updated_at DESC'
     ).all() as Record<string, unknown>[]
 
     return rows.map(r => this.toConversation(r))
@@ -183,13 +189,14 @@ export class ConversationService {
 
     this.stmt(
       'createConversation',
-      `INSERT INTO conversations (id, title, model, provider, created_at, updated_at, workspace_path)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO conversations (id, title, model, provider, is_pinned, created_at, updated_at, workspace_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id,
       data.title || 'New Chat',
       data.model || 'gpt-4',
       data.provider || 'openai',
+      data.isPinned ? 1 : 0,
       now,
       now,
       data.workspacePath || null
@@ -204,6 +211,12 @@ export class ConversationService {
   updateConversation(id: string, data: Partial<Conversation>): void {
     const now = Date.now()
     const shouldUpdateWorkspacePath = data.workspacePath !== undefined
+    const shouldUpdatePinned = data.isPinned !== undefined
+    const shouldBumpUpdatedAt =
+      data.title !== undefined ||
+      data.model !== undefined ||
+      data.provider !== undefined ||
+      shouldUpdateWorkspacePath
 
     this.stmt(
       'updateConversation',
@@ -211,7 +224,14 @@ export class ConversationService {
         title = COALESCE(?, title),
         model = COALESCE(?, model),
         provider = COALESCE(?, provider),
-        updated_at = ?,
+        is_pinned = CASE
+          WHEN ? = 1 THEN ?
+          ELSE is_pinned
+        END,
+        updated_at = CASE
+          WHEN ? = 1 THEN ?
+          ELSE updated_at
+        END,
         workspace_path = CASE
           WHEN ? = 1 THEN ?
           ELSE workspace_path
@@ -221,6 +241,9 @@ export class ConversationService {
       data.title ?? null,
       data.model ?? null,
       data.provider ?? null,
+      shouldUpdatePinned ? 1 : 0,
+      data.isPinned ? 1 : 0,
+      shouldBumpUpdatedAt ? 1 : 0,
       now,
       shouldUpdateWorkspacePath ? 1 : 0,
       data.workspacePath ?? null,
@@ -286,13 +309,14 @@ export class ConversationService {
     const forkInTransaction = this.db.transaction(() => {
       this.stmt(
         'createForkConversation',
-        `INSERT INTO conversations (id, title, model, provider, created_at, updated_at, workspace_path)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO conversations (id, title, model, provider, is_pinned, created_at, updated_at, workspace_path)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         forkConversationId,
         forkTitle,
         sourceConversation.model as string,
         sourceConversation.provider as Conversation['provider'],
+        0,
         now,
         now,
         sourceConversation.workspace_path as string | null

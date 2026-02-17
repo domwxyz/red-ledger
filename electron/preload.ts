@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { RedLedgerAPI } from '../src/types'
+import type { RedLedgerAPI, StreamChunk } from '../src/types'
 
 /**
  * The preload script exposes a single `window.redLedger` API object.
@@ -88,7 +88,12 @@ const api: RedLedgerAPI = {
     }
 
     ipcRenderer.on(channel, handler)
-    ipcRenderer.invoke('llm:sendMessage', request, channel)
+    void ipcRenderer.invoke('llm:sendMessage', request, channel).catch((err) => {
+      ipcRenderer.removeListener(channel, handler)
+      const message = err instanceof Error ? err.message : String(err)
+      onStream({ type: 'error', error: message } as StreamChunk)
+      onStream({ type: 'done' } as StreamChunk)
+    })
 
     // Return cleanup function
     return () => {

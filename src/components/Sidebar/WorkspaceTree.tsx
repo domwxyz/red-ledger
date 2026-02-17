@@ -12,6 +12,7 @@ interface WorkspaceTreeProps {
 export function WorkspaceTree({ compactOpenFolderButton = false }: WorkspaceTreeProps) {
   const workspacePath = useUIStore((s) => s.workspacePath)
   const setWorkspacePath = useUIStore((s) => s.setWorkspacePath)
+  const setSelectedFilePath = useUIStore((s) => s.setSelectedFilePath)
   const selectedFilePath = useUIStore((s) => s.selectedFilePath)
   const settings = useSettingsStore((s) => s.settings)
   const saveSettings = useSettingsStore((s) => s.saveSettings)
@@ -22,12 +23,15 @@ export function WorkspaceTree({ compactOpenFolderButton = false }: WorkspaceTree
     if (!window.redLedger) return
     const path = await window.redLedger.selectWorkspace()
     if (path) {
+      if (workspacePath !== path) {
+        setSelectedFilePath(null)
+      }
       setWorkspacePath(path)
       if (settings && settings.lastWorkspacePath !== path) {
         saveSettings({ ...settings, lastWorkspacePath: path })
       }
     }
-  }, [setWorkspacePath, settings, saveSettings])
+  }, [workspacePath, setSelectedFilePath, setWorkspacePath, settings, saveSettings])
 
   useEffect(() => {
     if (!workspacePath) {

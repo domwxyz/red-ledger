@@ -180,6 +180,56 @@ describe('SearchService.search', () => {
     ])
   })
 
+  it('normalizes orgSite URLs to a hostname before applying site operator', async () => {
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        results: [
+          { title: 'Org Result', url: 'https://docs.example.com/one', content: 'Scoped snippet' }
+        ]
+      }
+    })
+
+    const service = new SearchService(() => ({
+      tavilyApiKey: 'tvly-test',
+      serpApiKey: '',
+      orgSite: 'https://docs.example.com/reference/path?x=1'
+    } as never))
+
+    await service.orgSearch('release notes', 1)
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      'https://api.tavily.com/search',
+      expect.objectContaining({
+        query: 'release notes site:docs.example.com'
+      }),
+      { timeout: 15_000 }
+    )
+  })
+
+  it('uses only the site operator when orgSearch query is blank', async () => {
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        results: []
+      }
+    })
+
+    const service = new SearchService(() => ({
+      tavilyApiKey: 'tvly-test',
+      serpApiKey: '',
+      orgSite: 'docs.example.com'
+    } as never))
+
+    await service.orgSearch('   ', 1)
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      'https://api.tavily.com/search',
+      expect.objectContaining({
+        query: 'site:docs.example.com'
+      }),
+      { timeout: 15_000 }
+    )
+  })
+
   it('does not duplicate site operator when orgSearch query already includes one', async () => {
     mockedAxios.post.mockResolvedValueOnce({
       data: {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, Pencil, Check, X, Star } from 'lucide-react'
 import { useConversationStore, useUIStore } from '@/store'
 import { cn, formatTimestamp } from '@/lib/utils'
 
@@ -14,6 +14,7 @@ export function ConversationList({ compactNewChatButton = false }: ConversationL
   const createConversation = useConversationStore((s) => s.createConversation)
   const deleteConversation = useConversationStore((s) => s.deleteConversation)
   const renameConversation = useConversationStore((s) => s.renameConversation)
+  const setConversationPinned = useConversationStore((s) => s.setConversationPinned)
   const setActiveConversation = useConversationStore((s) => s.setActiveConversation)
   const workspacePath = useUIStore((s) => s.workspacePath)
 
@@ -56,6 +57,11 @@ export function ConversationList({ compactNewChatButton = false }: ConversationL
 
   const handleCancelRename = () => {
     setRenamingId(null)
+  }
+
+  const handleTogglePin = async (id: string, isPinned: boolean, e: React.MouseEvent) => {
+    e.stopPropagation()
+    await setConversationPinned(id, !isPinned)
   }
 
   return (
@@ -126,22 +132,42 @@ export function ConversationList({ compactNewChatButton = false }: ConversationL
 
               {/* Action Buttons (visible on hover) */}
               {renamingId !== conv.id && (
-                <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
-                  <button
-                    onClick={(e) => handleStartRename(conv.id, conv.title, e)}
-                    className="p-1 rounded hover:bg-base-300 text-soft-charcoal/40 hover:text-soft-charcoal transition-colors"
-                    title="Rename"
-                  >
-                    <Pencil size={12} />
-                  </button>
-                  <button
-                    onClick={(e) => handleDelete(conv.id, e)}
-                    className="p-1 rounded hover:bg-error/10 text-soft-charcoal/40 hover:text-error transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
+                <>
+                  {conv.isPinned && (
+                    <div className="ml-1 flex shrink-0 items-center text-amber-600/80 group-hover:hidden pointer-events-none">
+                      <Star size={12} className="fill-current" />
+                    </div>
+                  )}
+
+                  <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 ml-1">
+                    <button
+                      onClick={(e) => handleTogglePin(conv.id, conv.isPinned, e)}
+                      className={cn(
+                        'p-1 rounded hover:bg-base-300 transition-colors',
+                        conv.isPinned
+                          ? 'text-amber-600 hover:text-amber-700'
+                          : 'text-soft-charcoal/40 hover:text-soft-charcoal'
+                      )}
+                      title={conv.isPinned ? 'Unpin' : 'Pin'}
+                    >
+                      <Star size={12} className={cn(conv.isPinned && 'fill-current')} />
+                    </button>
+                    <button
+                      onClick={(e) => handleStartRename(conv.id, conv.title, e)}
+                      className="p-1 rounded hover:bg-base-300 text-soft-charcoal/40 hover:text-soft-charcoal transition-colors"
+                      title="Rename"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(conv.id, e)}
+                      className="p-1 rounded hover:bg-error/10 text-soft-charcoal/40 hover:text-error transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           ))
