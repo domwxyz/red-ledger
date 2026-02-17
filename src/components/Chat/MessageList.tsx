@@ -23,7 +23,6 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry, onEdit 
   const isLoadingMessages = useConversationStore((s) => s.isLoadingMessages)
   const forkConversationFromMessage = useConversationStore((s) => s.forkConversationFromMessage)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
   const prevMessageCountRef = useRef(0)
 
   const getNearBottomThresholdPx = useCallback((el: HTMLDivElement) => {
@@ -51,7 +50,10 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry, onEdit 
     prevMessageCountRef.current = messages.length
 
     if (messageCountChanged || isNearBottom()) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      const scrollContainer = scrollContainerRef.current
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight
+      }
     }
   }, [messages, isNearBottom])
 
@@ -111,7 +113,6 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry, onEdit 
           />
         )
       })}
-      <div ref={bottomRef} />
     </div>
   )
 }
