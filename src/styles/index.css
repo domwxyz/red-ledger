@@ -59,6 +59,22 @@
   color-scheme: dark;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  :root {
+    --theme-transition-duration: 0ms;
+  }
+
+  :root.theme-transition {
+    --theme-transition-duration: 240ms;
+  }
+
+  :where([data-theme], [data-theme] *, [data-theme] *::before, [data-theme] *::after) {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+    transition-duration: var(--theme-transition-duration);
+    transition-timing-function: ease;
+  }
+}
+
 /* ─── Base Styles ─────────────────────────────────────────────────────────── */
 
 @layer base {

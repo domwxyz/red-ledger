@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { Layout } from './components/Layout'
 import { Toaster } from './components/ui/Toast'
 import { useSettingsStore, useUIStore } from './store'
@@ -8,10 +8,29 @@ export default function App() {
   const loadSettings = useSettingsStore((s) => s.loadSettings)
   const settings = useSettingsStore((s) => s.settings)
   const activeTheme = settings?.darkMode ? 'red-ledger-dark' : 'red-ledger'
+  const previousThemeRef = useRef(activeTheme)
 
   useEffect(() => {
     loadSettings()
   }, [loadSettings])
+
+  useLayoutEffect(() => {
+    if (previousThemeRef.current === activeTheme) return
+
+    const root = document.documentElement
+    root.classList.add('theme-transition')
+
+    const timeoutId = window.setTimeout(() => {
+      root.classList.remove('theme-transition')
+    }, 240)
+
+    previousThemeRef.current = activeTheme
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      root.classList.remove('theme-transition')
+    }
+  }, [activeTheme])
 
   // After settings load, validate and restore the last workspace path
   useEffect(() => {
