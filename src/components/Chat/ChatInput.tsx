@@ -2,7 +2,114 @@ import { useState, useRef, useCallback } from 'react'
 import { Send, Square, Paperclip, X } from 'lucide-react'
 import { useConversationStore, useSettingsStore, useUIStore } from '@/store'
 import type { useStreaming } from '@/hooks/useStreaming'
-import type { Attachment } from '@/types'
+import type { Attachment, ImageAttachment, ImageAttachmentMimeType } from '@/types'
+
+const SUPPORTED_PASTED_IMAGE_MIME_TYPES = new Set<ImageAttachmentMimeType>([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif'
+])
+
+const IMAGE_EXTENSION_BY_MIME_TYPE: Record<ImageAttachmentMimeType, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif'
+}
+
+function isSupportedPastedImageMimeType(value: string): value is ImageAttachmentMimeType {
+  return SUPPORTED_PASTED_IMAGE_MIME_TYPES.has(value as ImageAttachmentMimeType)
+}
+
+function getClipboardImageFiles(event: React.ClipboardEvent<HTMLTextAreaElement>): File[] {
+  return Array
+    .from(event.clipboardData?.items ?? [])
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => file !== null)
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+        return
+      }
+      reject(new Error('Clipboard image parse failed'))
+    }
+    reader.onerror = () => {
+      reject(reader.error ?? new Error('Clipboard image parse failed'))
+    }
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function normalizePastedImage(file: File): Promise<{ blob: Blob; mimeType: ImageAttachmentMimeType } | null> {
+  if (isSupportedPastedImageMimeType(file.type)) {
+    return {
+      blob: file,
+      mimeType: file.type
+    }
+  }
+
+  if (!file.type.startsWith('image/')) {
+    return null
+  }
+
+  let bitmap: ImageBitmap | null = null
+  try {
+    bitmap = await createImageBitmap(file)
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, bitmap.width)
+    canvas.height = Math.max(1, bitmap.height)
+
+    const context = canvas.getContext('2d')
+    if (!context) return null
+    context.drawImage(bitmap, 0, 0)
+
+    const pngBlob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/png')
+    })
+    if (!pngBlob) return null
+
+    return {
+      blob: pngBlob,
+      mimeType: 'image/png'
+    }
+  } catch {
+    return null
+  } finally {
+    bitmap?.close()
+  }
+}
+
+function buildPastedImageName(timestamp: number, index: number, mimeType: ImageAttachmentMimeType): string {
+  const extension = IMAGE_EXTENSION_BY_MIME_TYPE[mimeType]
+  return `pasted-image-${timestamp}-${index + 1}.${extension}`
+}
+
+async function toClipboardImageAttachment(
+  file: File,
+  timestamp: number,
+  index: number
+): Promise<ImageAttachment | null> {
+  const normalized = await normalizePastedImage(file)
+  if (!normalized) return null
+
+  try {
+    return {
+      kind: 'image',
+      name: buildPastedImageName(timestamp, index, normalized.mimeType),
+      mimeType: normalized.mimeType,
+      dataUrl: await blobToDataUrl(normalized.blob)
+    }
+  } catch {
+    return null
+  }
+}
 
 interface ChatInputProps {
   streaming: ReturnType<typeof useStreaming>
@@ -27,6 +134,7 @@ export function ChatInput({
   const createConversation = useConversationStore((s) => s.createConversation)
   const settings = useSettingsStore((s) => s.settings)
   const workspacePath = useUIStore((s) => s.workspacePath)
+  const addToast = useUIStore((s) => s.addToast)
   const { isStreaming, sendMessage, cancel } = streaming
 
   const handleAttach = useCallback(async () => {
@@ -35,6 +143,31 @@ export function ChatInput({
       onAddAttachments(files)
     }
   }, [onAddAttachments])
+
+  const handlePaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const imageFiles = getClipboardImageFiles(event)
+    if (imageFiles.length === 0 || !settings || isStreaming) return
+
+    const timestamp = Date.now()
+
+    void (async () => {
+      const parsed = await Promise.all(
+        imageFiles.map((file, index) => toClipboardImageAttachment(file, timestamp, index))
+      )
+      const pastedAttachments = parsed.filter((attachment): attachment is ImageAttachment => attachment !== null)
+      const failedCount = parsed.length - pastedAttachments.length
+
+      if (pastedAttachments.length > 0) {
+        onAddAttachments(pastedAttachments)
+      }
+      if (failedCount > 0) {
+        addToast({
+          type: 'warning',
+          message: `${failedCount} clipboard image${failedCount === 1 ? '' : 's'} could not be attached.`
+        })
+      }
+    })()
+  }, [addToast, isStreaming, onAddAttachments, settings])
 
   const handleSend = useCallback(async () => {
     const content = input.trim()
@@ -113,6 +246,7 @@ export function ChatInput({
           value={input}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder={
             isDisabled
               ? 'Loading settings...'
@@ -141,7 +275,7 @@ export function ChatInput({
               onClick={handleAttach}
               disabled={isDisabled}
               className="btn btn-ghost btn-sm h-10 w-10 min-w-[40px] p-0 shrink-0 text-soft-charcoal/50 hover:text-soft-charcoal"
-              title="Attach .txt, .md, .pdf, .png, .jpg/.jpeg, .webp, or .gif files"
+              title="Attach files or paste an image into the message box (.txt, .md, .pdf, .png, .jpg/.jpeg, .webp, .gif)"
             >
               <Paperclip size={16} />
             </button>
