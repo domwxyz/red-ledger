@@ -218,6 +218,7 @@ function createWindow(): void {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      spellcheck: true,
       // Keep renderer timers and IPC handling active while minimized/backgrounded
       // so long-running streams/tool calls can complete.
       backgroundThrottling: false
@@ -243,12 +244,45 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  // ─── Right-click context menu (Copy / Cut / Paste / Select All) ──────────
+  // ─── Right-click context menu (spell suggestions + edit actions) ─────────
   mainWindow.webContents.on('context-menu', (_event, params) => {
-    const { editFlags, isEditable, selectionText } = params
+    const {
+      editFlags,
+      isEditable,
+      selectionText,
+      misspelledWord,
+      dictionarySuggestions = []
+    } = params
     const hasSelection = selectionText.trim().length > 0
+    const hasMisspelling = isEditable && misspelledWord.trim().length > 0
 
-    const menu = Menu.buildFromTemplate([
+    const menuTemplate: MenuItemConstructorOptions[] = []
+
+    if (hasMisspelling) {
+      if (dictionarySuggestions.length > 0) {
+        menuTemplate.push(...dictionarySuggestions.map((suggestion) => ({
+          label: suggestion,
+          click: () => {
+            mainWindow?.webContents.replaceMisspelling(suggestion)
+          }
+        })))
+      } else {
+        menuTemplate.push({
+          label: 'No Spelling Suggestions',
+          enabled: false
+        })
+      }
+
+      menuTemplate.push({
+        label: `Add "${misspelledWord}" to Dictionary`,
+        click: () => {
+          mainWindow?.webContents.session.addWordToSpellCheckerDictionary(misspelledWord)
+        }
+      })
+      menuTemplate.push({ type: 'separator' })
+    }
+
+    menuTemplate.push(
       {
         label: 'Cut',
         role: 'cut',
@@ -274,10 +308,12 @@ function createWindow(): void {
         enabled: editFlags.canSelectAll,
         visible: isEditable
       }
-    ])
+    )
+
+    const menu = Menu.buildFromTemplate(menuTemplate)
 
     // Only show the menu if there's something useful to show
-    if (hasSelection || isEditable) {
+    if (hasSelection || isEditable || hasMisspelling) {
       menu.popup()
     }
   })
