@@ -22,6 +22,7 @@ export interface Settings {
   temperature: number     // 0.0–2.0
   maxTokensEnabled: boolean
   maxTokens: number       // 1–128000
+  maxToolCalls: number    // 1-25
   strictMode: boolean
   darkMode: boolean
   tavilyApiKey: string
@@ -178,7 +179,7 @@ export interface Toast {
   id: string
   type: 'success' | 'error' | 'warning' | 'info'
   message: string
-  duration?: number
+  duration?: number | null
 }
 
 // ─── IPC API (exposed via contextBridge as window.redLedger) ─────────────────

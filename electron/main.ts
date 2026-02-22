@@ -217,7 +217,10 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true
+      sandbox: true,
+      // Keep renderer timers and IPC handling active while minimized/backgrounded
+      // so long-running streams/tool calls can complete.
+      backgroundThrottling: false
     }
   })
 

@@ -1,4 +1,4 @@
-import type { LLMMessage, AbortHandle, LLMMessageContent } from '../lib/providers/base'
+import type { LLMMessage, AbortHandle, LLMMessageContent, ToolDefinition } from '../lib/providers/base'
 import { createProvider } from '../lib/providers/registry'
 import { getToolDefinitions } from '../lib/tools/registry'
 import { sanitizeGeneratedChatTitle } from '../../src/lib/chatTitle'
@@ -19,10 +19,11 @@ import '../lib/providers/openrouter'
 import '../lib/providers/ollama'
 import '../lib/providers/lmstudio'
 
-const MAX_TOOL_ROUNDS = 10
+const DEFAULT_MAX_TOOL_CALLS = 25
 const DEFAULT_TITLE_MAX_TOKENS = 24
 const TITLE_TEMPERATURE = 0.2
 const SEARCH_TOOLS_REQUIRING_API_KEYS = new Set(['web_search', 'org_search'])
+const ORG_SEARCH_TOOL_NAME = 'org_search'
 const TITLE_GENERATION_SYSTEM_PROMPT =
   'Generate a concise chat title for the provided user prompt. Return only the title text in 2 to 6 words. No reasoning, no prefix, no quotes, no markdown, and no trailing punctuation.'
 
@@ -122,6 +123,62 @@ export class LlmService {
     return [{ type: 'text', text: timestampTag }, ...parts]
   }
 
+  private withDynamicToolDescriptions(tools: ToolDefinition[], settings: Settings): ToolDefinition[] {
+    return tools.map((tool) => {
+      if (tool.function.name !== ORG_SEARCH_TOOL_NAME) return tool
+
+      return {
+        ...tool,
+        function: {
+          ...tool.function,
+          description: this.buildOrgSearchToolDescription(settings.orgSite)
+        }
+      }
+    })
+  }
+
+  private buildOrgSearchToolDescription(orgSite: string | undefined): string {
+    const rawSite = typeof orgSite === 'string'
+      ? orgSite.trim().replace(/\s+/g, ' ')
+      : ''
+    const normalizedSite = this.normalizeOrgSite(orgSite)
+
+    if (!rawSite) {
+      return 'Search the web with a user-configured organization site filter. Current org_search site setting: not set. Use this when the user asks for source-scoped web results. Returns titles, URLs, and snippets.'
+    }
+
+    if (!normalizedSite) {
+      return `Search the web with a user-configured organization site filter. Current org_search site setting: "${rawSite}" (currently not normalized to a valid hostname). Use this when the user asks for this configured source. Returns titles, URLs, and snippets.`
+    }
+
+    return `Search the web with a user-configured organization site filter. Current org_search site setting: "${rawSite}" (effective filter: site:${normalizedSite}). Use this when the user asks to search ${normalizedSite} or this configured source. Returns titles, URLs, and snippets.`
+  }
+
+  private normalizeOrgSite(orgSite: string | undefined): string | null {
+    if (!orgSite) return null
+
+    const trimmed = orgSite.trim()
+    if (!trimmed) return null
+
+    const withoutPrefix = trimmed.replace(/^site:/i, '').trim()
+    if (!withoutPrefix) return null
+
+    const [firstToken] = withoutPrefix.split(/\s+/)
+    if (!firstToken) return null
+
+    const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(firstToken)
+      ? firstToken
+      : `https://${firstToken}`
+
+    try {
+      const parsed = new URL(candidate)
+      return parsed.hostname.trim().toLowerCase() || null
+    } catch {
+      const fallbackHost = firstToken.split('/')[0]?.trim().toLowerCase()
+      return fallbackHost || null
+    }
+  }
+
   private buildUserMessageContent(
     content: string,
     attachments: Attachment[] | undefined,
@@ -193,14 +250,16 @@ export class LlmService {
       messages.push({ role: msg.role, content: msg.content })
     }
 
-    const tools = getToolDefinitions().filter((tool) =>
+    const tools = this.withDynamicToolDescriptions(getToolDefinitions(), settings).filter((tool) =>
       settings.searchToolsEnabled || !SEARCH_TOOLS_REQUIRING_API_KEYS.has(tool.function.name)
     )
     const availableToolNames = new Set(tools.map((tool) => tool.function.name))
+    const maxToolCalls = Number.isFinite(settings.maxToolCalls)
+      ? Math.max(1, Math.floor(settings.maxToolCalls))
+      : DEFAULT_MAX_TOOL_CALLS
+    let totalToolCalls = 0
 
-    let toolRound = 0
-
-    while (toolRound < MAX_TOOL_ROUNDS) {
+    while (true) {
       const collectedToolCalls: ToolCall[] = []
       let textAccumulated = ''
 
@@ -259,7 +318,15 @@ export class LlmService {
       }
 
       // streamDone === 'tool_calls' — execute each tool and loop
-      toolRound++
+      if (totalToolCalls + collectedToolCalls.length > maxToolCalls) {
+        sink.send({
+          type: 'error',
+          error: `Maximum tool calls (${maxToolCalls}) exceeded. The assistant may be stuck in a loop.`
+        })
+        sink.send({ type: 'done' })
+        return
+      }
+      totalToolCalls += collectedToolCalls.length
 
       // Append the assistant's response (with tool_calls) to the conversation
       const assistantMessage: LLMMessage = {
@@ -304,13 +371,6 @@ export class LlmService {
 
       textAccumulated = ''
     }
-
-    // Exceeded max tool rounds
-    sink.send({
-      type: 'error',
-      error: `Maximum tool rounds (${MAX_TOOL_ROUNDS}) exceeded. The assistant may be stuck in a loop.`
-    })
-    sink.send({ type: 'done' })
   }
 
   cancelStream(channel: string): void {

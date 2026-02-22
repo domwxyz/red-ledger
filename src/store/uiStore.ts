@@ -18,6 +18,7 @@ interface UIState {
 }
 
 let toastCounter = 0
+const DEFAULT_TOAST_DURATION_MS = 4000
 
 export const useUIStore = create<UIState>((set, get) => ({
   sidebarTab: 'conversations',
@@ -33,16 +34,18 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   addToast: (toast) => {
     const id = `toast-${++toastCounter}`
-    const duration = toast.duration ?? 4000
+    const duration = toast.duration ?? (toast.type === 'error' ? null : DEFAULT_TOAST_DURATION_MS)
 
     set((state) => ({
       toasts: [...state.toasts, { ...toast, id }]
     }))
 
-    // Auto-dismiss
-    setTimeout(() => {
-      get().removeToast(id)
-    }, duration)
+    if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
+      // Auto-dismiss non-error toasts unless explicitly made persistent.
+      setTimeout(() => {
+        get().removeToast(id)
+      }, duration)
+    }
   },
 
   removeToast: (id) =>

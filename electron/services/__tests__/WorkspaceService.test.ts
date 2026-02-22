@@ -19,6 +19,7 @@ const BASE_SETTINGS: Settings = {
   temperature: 0.7,
   maxTokensEnabled: false,
   maxTokens: 4096,
+  maxToolCalls: 25,
   strictMode: false,
   darkMode: false,
   tavilyApiKey: '',

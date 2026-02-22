@@ -11,6 +11,7 @@ describe('sanitizeSettings', () => {
     expect(result.temperature).toBe(1.0)
     expect(result.maxTokensEnabled).toBe(false)
     expect(result.maxTokens).toBe(8192)
+    expect(result.maxToolCalls).toBe(25)
     expect(result.strictMode).toBe(false)
     expect(result.darkMode).toBe(false)
     expect(result.orgSite).toBe('')
@@ -28,6 +29,7 @@ describe('sanitizeSettings', () => {
     expect(result.reasoningEnabled).toBe(true)
     expect(result.temperatureEnabled).toBe(false)
     expect(result.maxTokensEnabled).toBe(false)
+    expect(result.maxToolCalls).toBe(25)
     expect(result.providers.openai.baseUrl).toBe('https://api.openai.com/v1')
     expect(result.providers.openrouter.baseUrl).toBe('https://openrouter.ai/api/v1')
     expect(result.providers.ollama.baseUrl).toBe('http://localhost:11434')
@@ -67,6 +69,15 @@ describe('sanitizeSettings', () => {
     expect(sanitizeSettings({ maxTokensEnabled: 'yes' as any } as any).maxTokensEnabled).toBe(false)
   })
 
+  it('preserves valid maxToolCalls value', () => {
+    expect(sanitizeSettings({ maxToolCalls: 20 } as any).maxToolCalls).toBe(20)
+    expect(sanitizeSettings({ maxToolCalls: 25 } as any).maxToolCalls).toBe(25)
+  })
+
+  it('defaults maxToolCalls for invalid input', () => {
+    expect(sanitizeSettings({ maxToolCalls: 'yes' as any } as any).maxToolCalls).toBe(25)
+  })
+
   it('preserves valid darkMode value', () => {
     expect(sanitizeSettings({ darkMode: true } as any).darkMode).toBe(true)
     expect(sanitizeSettings({ darkMode: false } as any).darkMode).toBe(false)
@@ -95,6 +106,16 @@ describe('sanitizeSettings', () => {
 
   it('floors maxTokens to integer', () => {
     expect(sanitizeSettings({ maxTokens: 1000.7 } as any).maxTokens).toBe(1000)
+  })
+
+  it('clamps maxToolCalls to 1â€“25', () => {
+    expect(sanitizeSettings({ maxToolCalls: 0 } as any).maxToolCalls).toBe(1)
+    expect(sanitizeSettings({ maxToolCalls: 500 } as any).maxToolCalls).toBe(25)
+    expect(sanitizeSettings({ maxToolCalls: 25 } as any).maxToolCalls).toBe(25)
+  })
+
+  it('floors maxToolCalls to integer', () => {
+    expect(sanitizeSettings({ maxToolCalls: 25.9 } as any).maxToolCalls).toBe(25)
   })
 
   it('rejects NaN temperature', () => {
