@@ -1,9 +1,46 @@
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { useCallback, useRef, useState } from 'react'
+import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import { Sidebar } from './Sidebar'
 import { ChatPanel } from './Chat/ChatPanel'
 import { ContextPanel } from './Context/ContextPanel'
 
+interface SidebarTriangleProps {
+  direction: 'left' | 'right'
+}
+
+function SidebarTriangle({ direction }: SidebarTriangleProps) {
+  if (direction === 'left') {
+    return (
+      <svg viewBox="0 0 8 10" aria-hidden="true" className="h-4 w-3 fill-current">
+        <path d="M7.5 0.8L1 5l6.5 4.2V0.8Z" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 8 10" aria-hidden="true" className="h-4 w-3 fill-current">
+      <path d="M0.5 0.8L7 5 0.5 9.2V0.8Z" />
+    </svg>
+  )
+}
+
 export function Layout() {
+  const contextPanelRef = useRef<ImperativePanelHandle>(null)
+  const [isContextCollapsed, setIsContextCollapsed] = useState(false)
+
+  const toggleContextPanel = useCallback(() => {
+    const panel = contextPanelRef.current
+    if (!panel) return
+
+    if (panel.isCollapsed()) {
+      panel.expand()
+    } else {
+      panel.collapse()
+    }
+  }, [])
+
+  const contextToggleLabel = isContextCollapsed ? 'Expand context sidebar' : 'Collapse context sidebar'
+
   return (
     <PanelGroup direction="horizontal" className="h-full w-full">
       {/* Left Sidebar */}
@@ -18,10 +55,34 @@ export function Layout() {
         <ChatPanel />
       </Panel>
 
-      <PanelResizeHandle className="pane-divider w-1" />
+      <PanelResizeHandle className="pane-divider relative w-1 overflow-visible">
+        <button
+          type="button"
+          onClick={toggleContextPanel}
+          onPointerDown={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          className="absolute left-0 top-1.5 z-20 flex h-8 w-8 -translate-x-[120%] items-center justify-center rounded-sm text-soft-charcoal/45 transition-colors hover:bg-paper-stack/65 hover:text-soft-charcoal/80 focus:outline-none focus-visible:bg-paper focus-visible:text-soft-charcoal focus-visible:ring-2 focus-visible:ring-rca-red/45"
+          title={contextToggleLabel}
+          aria-label={contextToggleLabel}
+        >
+          <SidebarTriangle direction={isContextCollapsed ? 'left' : 'right'} />
+        </button>
+      </PanelResizeHandle>
 
       {/* Right Context */}
-      <Panel defaultSize={30} minSize={20} maxSize={40}>
+      <Panel
+        ref={contextPanelRef}
+        defaultSize={30}
+        minSize={20}
+        maxSize={40}
+        collapsible
+        collapsedSize={0}
+        className="overflow-hidden"
+        onCollapse={() => setIsContextCollapsed(true)}
+        onExpand={() => setIsContextCollapsed(false)}
+      >
         <ContextPanel />
       </Panel>
     </PanelGroup>
