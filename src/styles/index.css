@@ -106,6 +106,39 @@
     @apply mr-auto bg-base-100 border border-weathered text-base-content;
   }
 
+  .assistant-message-shell {
+    @apply relative inline-flex max-w-[85%] flex-col items-start gap-2;
+  }
+
+  .assistant-message-shell .message-bubble.assistant,
+  .assistant-message-shell .tool-card {
+    max-width: 100%;
+  }
+
+  .assistant-collapsed-preview {
+    @apply pr-3;
+  }
+
+  .assistant-collapsed-content {
+    @apply flex flex-col;
+  }
+
+  .assistant-collapsed-text {
+    @apply m-0 whitespace-pre-wrap font-sans text-sm leading-relaxed;
+  }
+
+  .assistant-collapsed-tool {
+    @apply m-0 text-[10px] uppercase tracking-[0.08em] text-soft-charcoal/45;
+  }
+
+  .assistant-collapse-anchor {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    transform: translate(35%, 35%);
+    z-index: 1;
+  }
+
   /* Tool Call Cards */
   .tool-card {
     @apply border border-weathered rounded-card overflow-hidden text-sm;
@@ -316,6 +349,53 @@
 .message-action-btn:hover {
   color: rgb(var(--color-message-action) / 0.7);
   background-color: rgb(var(--color-message-action) / 0.08);
+}
+
+.message-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--color-weathered));
+  background-color: rgb(var(--color-paper));
+  color: rgb(var(--color-message-action) / 0.58);
+  box-shadow: 0 1px 3px rgb(var(--color-soft-charcoal) / 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.9);
+  transition: opacity 140ms ease, transform 140ms ease,
+    color 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+
+.message-row:hover .message-collapse-toggle,
+.message-row:focus-within .message-collapse-toggle {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.message-collapse-toggle.is-hovered {
+  color: rgb(var(--color-message-action) / 0.82);
+  border-color: rgb(var(--color-message-action) / 0.25);
+  background-color: rgb(var(--color-manila));
+}
+
+.message-collapse-toggle:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+  outline: 2px solid rgb(var(--color-link) / 0.45);
+  outline-offset: 1px;
+}
+
+@media (hover: none) {
+  .message-collapse-toggle {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+  }
 }
 
 /* ─── Streaming Cursor ────────────────────────────────────────────────────── */

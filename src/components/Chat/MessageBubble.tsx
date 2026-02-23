@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { Paperclip } from 'lucide-react'
+import { ChevronDown, ChevronUp, Paperclip } from 'lucide-react'
 import type { Attachment, Message, ToolCall } from '@/types'
 import { ToolCallCard } from './ToolCallCard'
 import {
@@ -36,7 +36,14 @@ type Segment =
   | { kind: 'text'; text: string; html: string }
   | { kind: 'tool'; toolCall: ToolCall }
 
+type CollapsedPreviewBlock =
+  | { kind: 'text'; content: string }
+  | { kind: 'tool'; content: string }
+
 const COPY_MESSAGE_SEPARATOR = '\n\n'
+const ASSISTANT_COLLAPSE_MIN_CHARS = 500
+const ASSISTANT_COLLAPSE_PREVIEW_CHARS = 180
+const ASSISTANT_COLLAPSE_PREVIEW_MAX_BLOCKS = 3
 
 function isImageAttachment(attachment: Attachment): attachment is Extract<Attachment, { kind: 'image' }> {
   return attachment.kind === 'image'
@@ -129,6 +136,26 @@ function parseLegacyAttachmentBlocks(content: string): { text: string; attachmen
   return { text, attachments }
 }
 
+function getToolCallPreviewLabel(toolCall: ToolCall): string {
+  const hasError = toolCall.result !== undefined
+    && typeof toolCall.result === 'object'
+    && toolCall.result !== null
+    && 'error' in toolCall.result
+
+  const status = toolCall.result === undefined
+    ? 'pending'
+    : hasError
+      ? 'error'
+      : 'complete'
+
+  return `[Tool] ${toolCall.name} (${status})`
+}
+
+function truncateCollapsedBlock(text: string): string {
+  if (text.length <= ASSISTANT_COLLAPSE_PREVIEW_CHARS) return text
+  return `${text.slice(0, ASSISTANT_COLLAPSE_PREVIEW_CHARS).trimEnd()}...`
+}
+
 export function MessageBubble({
   message,
   isStreaming,
@@ -140,6 +167,8 @@ export function MessageBubble({
   const [isEditing, setIsEditing] = useState(false)
   const [editingText, setEditingText] = useState('')
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapseToggleHovered, setIsCollapseToggleHovered] = useState(false)
   const editTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Parse tool calls from JSON string if present
@@ -176,6 +205,62 @@ export function MessageBubble({
     if (textSegments.length <= 1) return message.content
     return textSegments.join(COPY_MESSAGE_SEPARATOR)
   }, [message.content, message.role, segments])
+
+  const assistantCollapseBlocks = useMemo(() => {
+    if (message.role !== 'assistant') return [] as CollapsedPreviewBlock[]
+
+    const blocks: CollapsedPreviewBlock[] = []
+    for (const seg of segments) {
+      if (seg.kind === 'tool') {
+        blocks.push({ kind: 'tool', content: getToolCallPreviewLabel(seg.toolCall) })
+        continue
+      }
+
+      const normalizedText = seg.text.trim()
+      if (normalizedText) {
+        blocks.push({ kind: 'text', content: normalizedText })
+      }
+    }
+
+    return blocks
+  }, [message.role, segments])
+
+  const assistantCollapseSourceText = useMemo(
+    () => assistantCollapseBlocks.map((block) => block.content).join(COPY_MESSAGE_SEPARATOR).trim(),
+    [assistantCollapseBlocks]
+  )
+
+  const canCollapseAssistantMessage = message.role === 'assistant'
+    && !isStreaming
+    && assistantCollapseSourceText.length > ASSISTANT_COLLAPSE_MIN_CHARS
+
+  const assistantCollapsedPreviewBlocks = useMemo(() => {
+    if (assistantCollapseBlocks.length === 0) return [] as CollapsedPreviewBlock[]
+
+    const previewBlocks = assistantCollapseBlocks
+      .slice(0, ASSISTANT_COLLAPSE_PREVIEW_MAX_BLOCKS)
+      .map((block) => ({
+        ...block,
+        content: truncateCollapsedBlock(block.content)
+      }))
+
+    if (assistantCollapseBlocks.length > ASSISTANT_COLLAPSE_PREVIEW_MAX_BLOCKS) {
+      previewBlocks.push({ kind: 'text', content: '...' })
+    }
+
+    return previewBlocks
+  }, [assistantCollapseBlocks])
+
+  const showCollapsedAssistantMessage = canCollapseAssistantMessage && isCollapsed
+
+  useEffect(() => {
+    if (!canCollapseAssistantMessage && isCollapsed) {
+      setIsCollapsed(false)
+    }
+    if (!canCollapseAssistantMessage && isCollapseToggleHovered) {
+      setIsCollapseToggleHovered(false)
+    }
+  }, [canCollapseAssistantMessage, isCollapsed, isCollapseToggleHovered])
 
   // ─── Actions ───────────────────────────────────────────────────────────────
 
@@ -342,72 +427,142 @@ export function MessageBubble({
 
   return (
     <div className="message-row group flex flex-col gap-2 items-start">
-      {hasThinking && (
-        <details className="max-w-[85%] border border-weathered rounded-card bg-base-100 overflow-hidden group/thinking">
-          <summary className="inline-flex items-center gap-1.5 cursor-pointer px-3 py-2 text-xs text-soft-charcoal/70 hover:text-soft-charcoal select-none list-none [&::-webkit-details-marker]:hidden">
-            <span className="font-medium uppercase tracking-wide">Reasoning Trace</span>
-            <span className="text-[10px] opacity-50 group-open/thinking:rotate-90 transition-transform">&#9654;</span>
-          </summary>
-          <pre className="m-0 border-t border-weathered bg-base-200/40 px-3 py-2 text-xs font-mono whitespace-pre-wrap max-h-[260px] overflow-y-auto">
-            {message.thinking}
-          </pre>
-        </details>
-      )}
+      <div className="assistant-message-shell">
+        {showCollapsedAssistantMessage ? (
+          <div className="message-bubble assistant assistant-collapsed-preview">
+            <div className="assistant-collapsed-content">
+              {assistantCollapsedPreviewBlocks.map((block, index) => {
+                const previousKind = index > 0 ? assistantCollapsedPreviewBlocks[index - 1].kind : null
 
-      {segments.map((seg, i) => {
-        if (seg.kind === 'tool') {
-          return (
-            <div key={seg.toolCall.id} className="max-w-[85%]">
-              <ToolCallCard toolCall={seg.toolCall} />
+                if (block.kind === 'tool') {
+                  const toolSpacingClass = index === 0
+                    ? ''
+                    : previousKind === 'tool'
+                      ? 'mt-0'
+                      : 'mt-1.5'
+
+                  return (
+                    <p
+                      key={`collapsed-tool-${index}`}
+                      className={`assistant-collapsed-tool ${toolSpacingClass}`}
+                    >
+                      {block.content}
+                    </p>
+                  )
+                }
+
+                const textSpacingClass = index === 0
+                  ? ''
+                  : previousKind === 'text'
+                    ? 'mt-3'
+                    : 'mt-1.5'
+
+                return (
+                  <pre
+                    key={`collapsed-text-${index}`}
+                    className={`assistant-collapsed-text ${textSpacingClass}`}
+                  >
+                    {block.content}
+                  </pre>
+                )
+              })}
             </div>
-          )
-        }
-
-        // Text segment
-        const isLastTextSegment = i === segments.length - 1 && seg.kind === 'text'
-        return (
-          <div
-            key={`text-${i}`}
-            className="message-bubble assistant"
-          >
-            <div
-              className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: seg.html }}
-            />
-            {/* Streaming activity indicator - only on the very last text segment */}
-            {isStreaming && isLastTextSegment && (
-              <span className="inline-flex items-center">
-                {isReceivingThinking
-                  ? <span className="thinking-inline-indicator ml-0">thinking...</span>
-                  : <span className="streaming-cursor" />}
-              </span>
-            )}
           </div>
-        )
-      })}
+        ) : (
+          <>
+            {hasThinking && (
+              <details className="border border-weathered rounded-card bg-base-100 overflow-hidden group/thinking">
+                <summary className="inline-flex items-center gap-1.5 cursor-pointer px-3 py-2 text-xs text-soft-charcoal/70 hover:text-soft-charcoal select-none list-none [&::-webkit-details-marker]:hidden">
+                  <span className="font-medium uppercase tracking-wide">Reasoning Trace</span>
+                  <span className="text-[10px] opacity-50 group-open/thinking:rotate-90 transition-transform">&#9654;</span>
+                </summary>
+                <pre className="m-0 border-t border-weathered bg-base-200/40 px-3 py-2 text-xs font-mono whitespace-pre-wrap max-h-[260px] overflow-y-auto">
+                  {message.thinking}
+                </pre>
+              </details>
+            )}
 
-      {/* If streaming and the last segment is a tool call (text hasn't resumed yet),
-          show an activity indicator in a minimal bubble so the user sees activity */}
-      {isStreaming && !lastSegmentIsText && segments.length > 0 && (
-        <div className="message-bubble assistant">
-          <span className="inline-flex items-center">
-            {isReceivingThinking
-              ? <span className="thinking-inline-indicator ml-0">thinking...</span>
-              : <span className="streaming-cursor" />}
-          </span>
-        </div>
-      )}
+            {segments.map((seg, i) => {
+              if (seg.kind === 'tool') {
+                return <ToolCallCard key={seg.toolCall.id} toolCall={seg.toolCall} />
+              }
 
-      {/* If streaming but no segments yet (very start), show activity indicator */}
-      {isStreaming && segments.length === 0 && (
-        <div className="message-bubble assistant">
-          <span className="inline-flex items-center">
-            {isReceivingThinking
-              ? <span className="thinking-inline-indicator ml-0">thinking...</span>
-              : <span className="streaming-cursor" />}
-          </span>
-        </div>
-      )}
+              // Text segment
+              const isLastTextSegment = i === segments.length - 1 && seg.kind === 'text'
+              return (
+                <div
+                  key={`text-${i}`}
+                  className="message-bubble assistant"
+                >
+                  <div
+                    className="prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: seg.html }}
+                  />
+                  {/* Streaming activity indicator - only on the very last text segment */}
+                  {isStreaming && isLastTextSegment && (
+                    <span className="inline-flex items-center">
+                      {isReceivingThinking
+                        ? <span className="thinking-inline-indicator ml-0">thinking...</span>
+                        : <span className="streaming-cursor" />}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* If streaming and the last segment is a tool call (text hasn't resumed yet),
+                show an activity indicator in a minimal bubble so the user sees activity */}
+            {isStreaming && !lastSegmentIsText && segments.length > 0 && (
+              <div className="message-bubble assistant">
+                <span className="inline-flex items-center">
+                  {isReceivingThinking
+                    ? <span className="thinking-inline-indicator ml-0">thinking...</span>
+                    : <span className="streaming-cursor" />}
+                </span>
+              </div>
+            )}
+
+            {/* If streaming but no segments yet (very start), show activity indicator */}
+            {isStreaming && segments.length === 0 && (
+              <div className="message-bubble assistant">
+                <span className="inline-flex items-center">
+                  {isReceivingThinking
+                    ? <span className="thinking-inline-indicator ml-0">thinking...</span>
+                    : <span className="streaming-cursor" />}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+
+        {canCollapseAssistantMessage && (
+          <div className="assistant-collapse-anchor">
+            <button
+              type="button"
+              className={`message-collapse-toggle ${isCollapseToggleHovered ? 'is-hovered' : ''}`}
+              data-collapsed={isCollapsed ? 'true' : 'false'}
+              onPointerEnter={() => setIsCollapseToggleHovered(true)}
+              onPointerLeave={() => setIsCollapseToggleHovered(false)}
+              onPointerCancel={() => setIsCollapseToggleHovered(false)}
+              onBlur={() => setIsCollapseToggleHovered(false)}
+              onClick={(e) => {
+                setIsCollapsed((prev) => !prev)
+                setIsCollapseToggleHovered(false)
+                // Pointer clicks keep focus on the button, which can leave the
+                // hover-only control visually "stuck" after mouse-out.
+                if (e.detail > 0) {
+                  e.currentTarget.blur()
+                }
+              }}
+              aria-label={isCollapsed ? 'Expand assistant message' : 'Collapse assistant message'}
+              aria-expanded={!isCollapsed}
+              title={isCollapsed ? 'Expand message' : 'Collapse message'}
+            >
+              {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+            </button>
+          </div>
+        )}
+      </div>
 
       <MessageActionsBar actions={actions} align={align} />
     </div>
