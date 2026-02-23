@@ -2,6 +2,7 @@ import type { LLMMessage, AbortHandle, LLMMessageContent, ToolDefinition } from 
 import { createProvider } from '../lib/providers/registry'
 import { getToolDefinitions } from '../lib/tools/registry'
 import { sanitizeGeneratedChatTitle } from '../../src/lib/chatTitle'
+import { createHash } from 'node:crypto'
 import type {
   LLMRequest,
   StreamChunk,
@@ -79,12 +80,44 @@ export class LlmService {
     return true
   }
 
+  private md5(content: string): string {
+    return createHash('md5').update(content, 'utf8').digest('hex')
+  }
+
+  private countLines(content: string): number {
+    if (content.length === 0) return 0
+    const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    const splitLines = normalized.split('\n')
+    return normalized.endsWith('\n')
+      ? Math.max(1, splitLines.length - 1)
+      : splitLines.length
+  }
+
+  private escapeTagAttribute(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/'/g, '&#39;')
+  }
+
   private buildTextAttachmentBlocks(attachments: Attachment[]): string {
     const textAttachments = attachments.filter((attachment) => !this.isImageAttachment(attachment))
     if (textAttachments.length === 0) return ''
 
     return textAttachments
-      .map((attachment) => `\n\n---\n**Attached file: ${attachment.name}**\n\`\`\`\n${attachment.content}\n\`\`\``)
+      .map((attachment) => {
+        const name = this.escapeTagAttribute(attachment.name)
+        const md5 = this.md5(attachment.content)
+        const lines = this.countLines(attachment.content)
+        const content = attachment.content
+        const contentWithClosingNewline = content.length > 0 && !content.endsWith('\n') && !content.endsWith('\r')
+          ? `${content}\n`
+          : content
+
+        return `\n\n<attached_file name="${name}" md5="${md5}" lines="${lines}">\n${contentWithClosingNewline}</attached_file>`
+      })
       .join('')
   }
 
