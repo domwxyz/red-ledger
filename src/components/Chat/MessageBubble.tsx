@@ -117,25 +117,6 @@ function buildSegments(content: string, toolCalls: ToolCall[]): Segment[] {
   return segments
 }
 
-function parseLegacyAttachmentBlocks(content: string): { text: string; attachments: Attachment[] } {
-  const separator = '\n\n---\n**Attached file: '
-  const idx = content.indexOf(separator)
-  if (idx === -1) {
-    return { text: content, attachments: [] }
-  }
-
-  const text = content.slice(0, idx)
-  const rest = content.slice(idx)
-  const attachmentRegex = /\n\n---\n\*\*Attached file: (.+?)\*\*\n```\n([\s\S]*?)\n```/g
-  const attachments: Attachment[] = []
-  let match: RegExpExecArray | null
-  while ((match = attachmentRegex.exec(rest)) !== null) {
-    attachments.push({ name: match[1], content: match[2] })
-  }
-
-  return { text, attachments }
-}
-
 function getToolCallPreviewLabel(toolCall: ToolCall): string {
   const hasError = toolCall.result !== undefined
     && typeof toolCall.result === 'object'
@@ -183,10 +164,10 @@ export function MessageBubble({
 
   const userParts = useMemo(() => {
     if (message.role !== 'user') return null
-    if (message.attachments && message.attachments.length > 0) {
-      return { text: message.content, attachments: message.attachments }
+    return {
+      text: message.content,
+      attachments: message.attachments ?? []
     }
-    return parseLegacyAttachmentBlocks(message.content)
   }, [message.attachments, message.content, message.role])
 
   const segments = useMemo(
