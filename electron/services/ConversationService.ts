@@ -87,9 +87,6 @@ export class ConversationService {
         created_at INTEGER NOT NULL,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       );
-
-      CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
-      CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
     `)
 
     // Migration path for existing databases created before pinning support.
@@ -98,9 +95,65 @@ export class ConversationService {
       this.db.exec('ALTER TABLE conversations ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0')
     }
 
+    this.migrateConversationProviderConstraintIfNeeded()
+
     this.db.exec(
-      'CREATE INDEX IF NOT EXISTS idx_conversations_pinned_updated ON conversations(is_pinned DESC, updated_at DESC)'
+      `CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
+       CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
+       CREATE INDEX IF NOT EXISTS idx_conversations_pinned_updated ON conversations(is_pinned DESC, updated_at DESC);`
     )
+  }
+
+  private migrateConversationProviderConstraintIfNeeded(): void {
+    const schema = this.db
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'conversations'")
+      .get() as { sql?: string } | undefined
+
+    if (!schema || typeof schema.sql !== 'string') return
+    if (schema.sql.toLowerCase().includes("'lmstudio'")) return
+
+    this.db.exec('PRAGMA foreign_keys = OFF')
+    try {
+      const migrate = this.db.transaction(() => {
+        this.db.exec(`
+          DROP TABLE IF EXISTS conversations_new;
+
+          CREATE TABLE conversations_new (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL DEFAULT 'New Chat',
+            model TEXT NOT NULL DEFAULT 'gpt-4',
+            provider TEXT NOT NULL DEFAULT 'openai'
+              CHECK(provider IN ('openai', 'openrouter', 'ollama', 'lmstudio')),
+            is_pinned INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            workspace_path TEXT
+          );
+
+          INSERT INTO conversations_new (id, title, model, provider, is_pinned, created_at, updated_at, workspace_path)
+          SELECT
+            id,
+            title,
+            model,
+            CASE
+              WHEN provider IN ('openai', 'openrouter', 'ollama', 'lmstudio') THEN provider
+              ELSE 'openai'
+            END,
+            COALESCE(is_pinned, 0),
+            created_at,
+            updated_at,
+            workspace_path
+          FROM conversations;
+
+          DROP TABLE conversations;
+          ALTER TABLE conversations_new RENAME TO conversations;
+        `)
+      })
+
+      migrate()
+    } finally {
+      this.db.exec('PRAGMA foreign_keys = ON')
+    }
   }
 
   // ─── Column Mapping ───────────────────────────────────────────────────────
