@@ -177,6 +177,7 @@ export function ChatPanel() {
             <MessageList
               isStreaming={streaming.isStreaming}
               isReceivingThinking={streaming.isReceivingThinking}
+              streamingMessageId={streaming.streamingMessageId}
               onRetry={streaming.retry}
               onEdit={streaming.editLastUserMessage}
             />

@@ -35,15 +35,16 @@ function findLastUserMessage(messages: Message[]): Message | undefined {
 /**
  * React hook that manages the LLM streaming lifecycle.
  *
- * Flow: user sends message -> save to DB -> create temp assistant message ->
- * stream chunks into temp message -> on done/cancel, persist to DB and
- * atomically replace temp message with the saved version (no flash/gap).
+ * Flow: user sends message -> save to DB -> create a persisted assistant
+ * placeholder -> stream chunks into that message -> on done/cancel, finalize
+ * the persisted message so chat switches do not orphan the stream.
  *
  * Streaming content updates are throttled to avoid excessive re-renders.
  */
 export function useStreaming() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [isReceivingThinking, setIsReceivingThinking] = useState(false)
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
 
   const cleanupRef = useRef<(() => void) | null>(null)
   const tempMessageIdRef = useRef<string | null>(null)
@@ -55,6 +56,7 @@ export function useStreaming() {
   const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const thinkingActivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const titleGenerationInFlightRef = useRef(new Set<string>())
+  const persistenceErrorNotifiedRef = useRef(false)
 
   const clearThinkingActivity = useCallback(() => {
     setIsReceivingThinking(false)
@@ -75,62 +77,71 @@ export function useStreaming() {
     }, THINKING_ACTIVE_WINDOW_MS)
   }, [])
 
-  const finalizeTempMessage = useCallback((tempId: string, conversationId: string) => {
+  const reportPersistenceError = useCallback((err: unknown) => {
+    if (persistenceErrorNotifiedRef.current) return
+
+    persistenceErrorNotifiedRef.current = true
+    notify({
+      type: 'error',
+      message: formatError(err)
+    })
+  }, [])
+
+  const buildStreamingMessageUpdate = useCallback((contentOverride?: string): Partial<Message> => ({
+    content: contentOverride ?? contentRef.current,
+    thinking: thinkingRef.current || undefined,
+    toolCalls: toolCallsRef.current.length > 0
+      ? JSON.stringify(toolCallsRef.current)
+      : undefined
+  }), [])
+
+  const persistStreamingMessage = useCallback((messageId: string, data: Partial<Message>) => {
+    void window.redLedger.updateMessage(messageId, data).catch((err) => {
+      reportPersistenceError(err)
+    })
+  }, [reportPersistenceError])
+
+  const finalizeTempMessage = useCallback(async (tempId: string, conversationId: string) => {
     const finalContent = contentRef.current
-    const finalThinking = thinkingRef.current
-    const finalToolCalls = toolCallsRef.current
-    const hasAnyOutput = Boolean(finalContent || finalThinking || finalToolCalls.length > 0)
+    const hasAnyOutput = Boolean(
+      finalContent
+      || thinkingRef.current
+      || toolCallsRef.current.length > 0
+    )
 
     const clearTempRefsIfCurrent = () => {
       if (tempMessageIdRef.current === tempId) {
         tempMessageIdRef.current = null
+        setStreamingMessageId(null)
       }
       if (tempConversationIdRef.current === conversationId) {
         tempConversationIdRef.current = null
       }
     }
 
-    if (!hasAnyOutput) {
-      useConversationStore.setState((state) => ({
-        messages: state.messages.filter((m) => m.id !== tempId)
-      }))
+    try {
+      if (!hasAnyOutput) {
+        await window.redLedger.deleteMessagesFrom(conversationId, tempId)
+        useConversationStore.setState((state) => ({
+          messages: state.messages.filter((m) => m.id !== tempId)
+        }))
+        return
+      }
+
+      const finalUpdate = buildStreamingMessageUpdate(
+        finalContent ? undefined : '_(No text response)_'
+      )
+
+      useConversationStore.getState().updateMessage(tempId, finalUpdate)
+      await window.redLedger.updateMessage(tempId, finalUpdate)
+      useConversationStore.getState().touchConversation(conversationId)
+    } catch (err) {
+      reportPersistenceError(err)
+    } finally {
       clearTempRefsIfCurrent()
-      return
+      persistenceErrorNotifiedRef.current = false
     }
-
-    // Ensure the latest buffered state is visible before persistence swap.
-    useConversationStore.getState().updateMessage(tempId, {
-      content: finalContent,
-      thinking: finalThinking || undefined,
-      toolCalls: finalToolCalls.length > 0
-        ? JSON.stringify(finalToolCalls)
-        : undefined
-    })
-
-    window.redLedger.createMessage({
-      conversationId,
-      role: 'assistant',
-      content: finalContent || '_(No text response)_',
-      thinking: finalThinking || undefined,
-      toolCalls: finalToolCalls.length > 0
-        ? JSON.stringify(finalToolCalls)
-        : undefined
-    }).then((savedMsg) => {
-      // Atomic swap: replace temp with persisted message (no flash)
-      useConversationStore.setState((state) => ({
-        messages: state.messages.map((m) =>
-          m.id === tempId ? savedMsg : m
-        )
-      }))
-      useConversationStore.getState().touchConversation(conversationId, savedMsg.createdAt)
-      clearTempRefsIfCurrent()
-    }).catch((err) => {
-      notify({
-        type: 'error',
-        message: formatError(err)
-      })
-    })
-  }, [])
+  }, [buildStreamingMessageUpdate, reportPersistenceError])
 
   const maybeGenerateConversationTitle = useCallback((
     conversationId: string,
@@ -192,13 +203,14 @@ export function useStreaming() {
     }
 
     if (tempId && tempConversationId) {
-      finalizeTempMessage(tempId, tempConversationId)
+      void finalizeTempMessage(tempId, tempConversationId)
     } else if (tempId) {
       useConversationStore.setState((state) => ({
         messages: state.messages.filter((m) => m.id !== tempId)
       }))
       tempMessageIdRef.current = null
       tempConversationIdRef.current = null
+      setStreamingMessageId(null)
     }
 
     setIsStreaming(false)
@@ -207,6 +219,8 @@ export function useStreaming() {
     thinkingRef.current = ''
     toolCallsRef.current = []
     lastStreamChunkTypeRef.current = null
+    setStreamingMessageId(null)
+    persistenceErrorNotifiedRef.current = false
   }, [clearThinkingActivity, finalizeTempMessage])
 
   const sendMessage = useCallback(async (content: string, attachments?: Attachment[]) => {
@@ -223,6 +237,7 @@ export function useStreaming() {
     thinkingRef.current = ''
     toolCallsRef.current = []
     lastStreamChunkTypeRef.current = null
+    persistenceErrorNotifiedRef.current = false
 
     try {
       const configuredProvider = currentSettings.activeProvider
@@ -271,7 +286,8 @@ export function useStreaming() {
       })
 
       // 2. Build the message history for the LLM request
-      const messages = useConversationStore.getState().messages.map((m) => ({
+      const conversationMessages = await window.redLedger.listMessages(conversationId)
+      const messages = conversationMessages.map((m) => ({
         role: m.role,
         content: m.content,
         timestamp: m.timestamp,
@@ -289,31 +305,22 @@ export function useStreaming() {
         ...(currentSettings.maxTokensEnabled ? { maxTokens: currentSettings.maxTokens } : {})
       }
 
-      // 3. Create a placeholder assistant message in the store
-      const tempId = `streaming-${Date.now()}`
-      const tempMessage: Message = {
-        id: tempId,
+      // 3. Create a persisted assistant placeholder so chat switches do not orphan the stream.
+      const tempMessage = await store.addMessage({
         conversationId,
         role: 'assistant',
-        content: '',
-        timestamp: new Date().toISOString(),
-        createdAt: Date.now()
-      }
+        content: ''
+      })
+      const tempId = tempMessage.id
       tempMessageIdRef.current = tempId
       tempConversationIdRef.current = conversationId
-      useConversationStore.setState((state) => ({
-        messages: [...state.messages, tempMessage]
-      }))
+      setStreamingMessageId(tempId)
 
       // Helper: flush accumulated content to the temp message in the store
       const flushToStore = () => {
-        useConversationStore.getState().updateMessage(tempId, {
-          content: contentRef.current,
-          thinking: thinkingRef.current || undefined,
-          toolCalls: toolCallsRef.current.length > 0
-            ? JSON.stringify(toolCallsRef.current)
-            : undefined
-        })
+        const update = buildStreamingMessageUpdate()
+        useConversationStore.getState().updateMessage(tempId, update)
+        persistStreamingMessage(tempId, update)
       }
 
       // Helper: throttled store update for text chunks
@@ -403,7 +410,7 @@ export function useStreaming() {
             }
 
             cleanup()
-            finalizeTempMessage(tempId, conversationId)
+            void finalizeTempMessage(tempId, conversationId)
 
             setIsStreaming(false)
             contentRef.current = ''
@@ -420,23 +427,37 @@ export function useStreaming() {
       maybeGenerateConversationTitle(conversationId, lockedProvider, lockedModel)
 
     } catch (err) {
-      if (tempMessageIdRef.current) {
+      if (tempMessageIdRef.current && tempConversationIdRef.current) {
+        await finalizeTempMessage(tempMessageIdRef.current, tempConversationIdRef.current)
+      } else if (tempMessageIdRef.current) {
         const tempId = tempMessageIdRef.current
         useConversationStore.setState((state) => ({
           messages: state.messages.filter((m) => m.id !== tempId)
         }))
         tempMessageIdRef.current = null
         tempConversationIdRef.current = null
+        setStreamingMessageId(null)
       }
       setIsStreaming(false)
       clearThinkingActivity()
+      contentRef.current = ''
+      thinkingRef.current = ''
+      toolCallsRef.current = []
       lastStreamChunkTypeRef.current = null
+      persistenceErrorNotifiedRef.current = false
       notify({
         type: 'error',
         message: formatError(err)
       })
     }
-  }, [clearThinkingActivity, finalizeTempMessage, markThinkingActivity, maybeGenerateConversationTitle])
+  }, [
+    buildStreamingMessageUpdate,
+    clearThinkingActivity,
+    finalizeTempMessage,
+    markThinkingActivity,
+    maybeGenerateConversationTitle,
+    persistStreamingMessage
+  ])
 
   useEffect(() => {
     const titleGenerationInFlight = titleGenerationInFlightRef.current
@@ -489,6 +510,7 @@ export function useStreaming() {
   return {
     isStreaming,
     isReceivingThinking,
+    streamingMessageId,
     sendMessage,
     cancel,
     retry,

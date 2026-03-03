@@ -14,11 +14,18 @@ const NEAR_BOTTOM_MAX_PX = 96
 interface MessageListProps {
   isStreaming: boolean
   isReceivingThinking: boolean
+  streamingMessageId: string | null
   onRetry: () => void
   onEdit: (content: string) => Promise<void>
 }
 
-export function MessageList({ isStreaming, isReceivingThinking, onRetry, onEdit }: MessageListProps) {
+export function MessageList({
+  isStreaming,
+  isReceivingThinking,
+  streamingMessageId,
+  onRetry,
+  onEdit
+}: MessageListProps) {
   const messages = useConversationStore((s) => s.messages)
   const isLoadingMessages = useConversationStore((s) => s.isLoadingMessages)
   const forkConversationFromMessage = useConversationStore((s) => s.forkConversationFromMessage)
@@ -89,7 +96,6 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry, onEdit 
   const lastMessage = messages[messages.length - 1]
   const canRetry = !isStreaming
     && !!lastMessage
-    && !lastMessage.id.startsWith('streaming-')
     && (lastMessage.role === 'assistant' || lastMessage.role === 'user')
 
   return (
@@ -98,7 +104,7 @@ export function MessageList({ isStreaming, isReceivingThinking, onRetry, onEdit 
       className="h-full overflow-y-auto px-4 py-4 space-y-4"
     >
       {messages.map((message, idx) => {
-        const messageIsStreaming = isStreaming && message.id.startsWith('streaming-')
+        const messageIsStreaming = isStreaming && message.id === streamingMessageId
         return (
           <MessageBubble
             key={message.id}

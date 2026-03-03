@@ -165,7 +165,9 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       const message = await window.redLedger.createMessage(data)
       const updatedAt = message.createdAt
       set((state) => ({
-        messages: [...state.messages, message],
+        messages: state.activeConversationId === data.conversationId
+          ? [...state.messages, message]
+          : state.messages,
         conversations: sortConversationsByPriority(
           state.conversations.map((c) =>
             c.id === data.conversationId ? { ...c, updatedAt } : c
