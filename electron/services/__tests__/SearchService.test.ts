@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import axios from 'axios'
+import { lookup } from 'node:dns/promises'
 import { SearchService } from '../SearchService'
 
 vi.mock('axios', () => ({
@@ -9,11 +10,17 @@ vi.mock('axios', () => ({
   }
 }))
 
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn()
+}))
+
 const mockedAxios = vi.mocked(axios, true)
+const mockedLookup = vi.mocked(lookup)
 
 describe('SearchService.fetchUrl', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockedLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as never)
   })
 
   it('includes anchor hrefs as absolute URLs in extracted html text', async () => {
@@ -62,6 +69,35 @@ describe('SearchService.fetchUrl', () => {
         isInternal: true
       }
     ])
+
+    const requestConfig = mockedAxios.get.mock.calls[0]?.[1] as {
+      lookup?: (
+        hostname: string,
+        options: { all?: boolean },
+        cb: (err: Error | null, address: string | Array<{ address: string; family: number }>, family?: number) => void
+      ) => void
+    } | undefined
+
+    expect(typeof requestConfig?.lookup).toBe('function')
+
+    const pinnedResult = await new Promise<{ address: string; family: number }>((resolve, reject) => {
+      requestConfig?.lookup?.('news.example.org', {}, (err, address, family) => {
+        if (err) {
+          reject(err)
+          return
+        }
+        if (typeof address !== 'string' || typeof family !== 'number') {
+          reject(new Error('Expected a single pinned lookup result'))
+          return
+        }
+        resolve({ address, family })
+      })
+    })
+
+    expect(pinnedResult).toEqual({
+      address: '93.184.216.34',
+      family: 4
+    })
   })
 
   it('dedupes links and strips URL fragments for fetchable follow-up links', async () => {
@@ -117,6 +153,44 @@ describe('SearchService.fetchUrl', () => {
     expect(result.content).toContain('Invalid decimal: &#9999999999999;')
     expect(result.content).toContain('Invalid hex: &#x110000;')
     expect(result.content).toContain('Valid copyright: \u00A9')
+  })
+
+  it('rejects localhost fetches before making a request', async () => {
+    const service = new SearchService(() => ({} as never))
+
+    await expect(service.fetchUrl('http://localhost:11434/api/tags')).rejects.toThrow(
+      'Refusing to fetch local or private network resources'
+    )
+    expect(mockedAxios.get).not.toHaveBeenCalled()
+    expect(mockedLookup).not.toHaveBeenCalled()
+  })
+
+  it('rejects domains that resolve to private IP ranges', async () => {
+    mockedLookup.mockResolvedValueOnce([{ address: '10.0.0.25', family: 4 }] as never)
+
+    const service = new SearchService(() => ({} as never))
+
+    await expect(service.fetchUrl('https://intranet.example.com/')).rejects.toThrow(
+      'Refusing to fetch local or private network resources'
+    )
+    expect(mockedAxios.get).not.toHaveBeenCalled()
+  })
+
+  it('revalidates redirects and blocks redirects into private hosts', async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      status: 302,
+      headers: {
+        location: 'http://127.0.0.1:8080/admin'
+      },
+      data: ''
+    })
+
+    const service = new SearchService(() => ({} as never))
+
+    await expect(service.fetchUrl('https://example.com/redirect')).rejects.toThrow(
+      'Refusing to fetch local or private network resources'
+    )
+    expect(mockedAxios.get).toHaveBeenCalledTimes(1)
   })
 })
 

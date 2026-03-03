@@ -87,8 +87,25 @@ export class WorkspaceService {
       }
     }
 
+    // Strict mode check for append operations
+    if (settings.strictMode && append) {
+      const confirmed = await dialog.showMessageBox({
+        type: 'question',
+        buttons: ['Deny', 'Allow'],
+        defaultId: 0,
+        title: 'File Append Request',
+        message: fileExists
+          ? `The assistant wants to append to: ${relativePath}`
+          : `The assistant wants to create and append to: ${relativePath}`,
+        detail: 'Do you want to allow this file modification?'
+      })
+      if (confirmed.response === 0) {
+        throw new PathJailError('USER_DENIED', 'User denied file append')
+      }
+    }
+
     // Strict mode check for new file creation
-    if (!fileExists && settings.strictMode) {
+    if (!append && !fileExists && settings.strictMode) {
       const confirmed = await dialog.showMessageBox({
         type: 'question',
         buttons: ['Deny', 'Allow'],

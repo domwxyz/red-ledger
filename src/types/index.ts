@@ -230,8 +230,7 @@ export interface RedLedgerAPI {
   showConfirmDialog(options: { title: string; message: string; detail?: string }): Promise<boolean>
   openTextFile(): Promise<string | null>
   openAttachmentFiles(): Promise<Attachment[]>
-  parseAttachmentFiles(filePaths: string[]): Promise<AttachmentParseResult>
-  getPathForFile(file: File): string
+  parseAttachmentFiles(files: File[]): Promise<AttachmentParseResult>
 }
 
 // Extend Window interface for the renderer

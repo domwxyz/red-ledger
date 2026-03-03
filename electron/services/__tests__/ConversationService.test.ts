@@ -10,6 +10,37 @@ type MigrationHarness = {
   migrateConversationProviderConstraintIfNeeded: () => void
 }
 
+type DatabaseHarness = {
+  stmt: (key: string, sql: string) => {
+    all?: (...args: unknown[]) => Record<string, unknown>[]
+    get?: (...args: unknown[]) => unknown
+    run?: (...args: unknown[]) => { changes?: number } | void
+  }
+}
+
+type MutationHarness = DatabaseHarness & {
+  db: {
+    transaction: (fn: () => void) => () => void
+  }
+}
+
+const listMessages = ConversationService.prototype.listMessages as (
+  this: DatabaseHarness,
+  conversationId: string
+) => ReturnType<ConversationService['listMessages']>
+
+const updateMessage = ConversationService.prototype.updateMessage as (
+  this: MutationHarness,
+  id: string,
+  data: Parameters<ConversationService['updateMessage']>[1]
+) => void
+
+const deleteMessagesFrom = ConversationService.prototype.deleteMessagesFrom as (
+  this: MutationHarness,
+  conversationId: string,
+  messageId: string
+) => void
+
 describe('ConversationService schema migrations', () => {
   it('migrates legacy provider constraints when lmstudio is missing', () => {
     const exec = vi.fn()
@@ -60,5 +91,118 @@ describe('ConversationService schema migrations', () => {
 
     expect(exec).not.toHaveBeenCalled()
     expect(transaction).not.toHaveBeenCalled()
+  })
+})
+
+describe('ConversationService message ordering and recency', () => {
+  it('lists messages in insertion order even when created_at values are out of order', () => {
+    const service = Object.create(ConversationService.prototype) as DatabaseHarness
+    const rows = [
+      {
+        id: 'first-message',
+        conversation_id: 'conv-1',
+        role: 'user',
+        content: 'first inserted',
+        attachments: null,
+        thinking: null,
+        tool_calls: null,
+        timestamp: '2026-03-03T12:00:00.000Z',
+        created_at: 2_000
+      },
+      {
+        id: 'second-message',
+        conversation_id: 'conv-1',
+        role: 'assistant',
+        content: 'second inserted',
+        attachments: null,
+        thinking: null,
+        tool_calls: null,
+        timestamp: '2026-03-03T12:00:01.000Z',
+        created_at: 1_000
+      }
+    ]
+    const all = vi.fn(() => rows)
+    const stmt = vi.fn((key: string, sql: string) => {
+      expect(key).toBe('listMessages')
+      expect(sql).toContain('ORDER BY rowid ASC')
+      return { all }
+    })
+
+    service.stmt = stmt
+
+    const messages = listMessages.call(service, 'conv-1')
+
+    expect(messages.map((message) => message.id)).toEqual([
+      'first-message',
+      'second-message'
+    ])
+    expect(all).toHaveBeenCalledWith('conv-1')
+  })
+
+  it('bumps conversation updated_at when a message is edited', () => {
+    const updateRun = vi.fn(() => ({ changes: 1 }))
+    const touchRun = vi.fn()
+    const transaction = vi.fn((fn: () => void) => fn)
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(3_000)
+    const service = Object.create(ConversationService.prototype) as MutationHarness
+
+    service.db = { transaction }
+    service.stmt = vi.fn((key: string, sql: string) => {
+      if (key === 'updateMessage') {
+        expect(sql).toContain('UPDATE messages SET')
+        return { run: updateRun }
+      }
+
+      if (key === 'touchConversationForMessage') {
+        expect(sql).toContain('SELECT conversation_id')
+        return { run: touchRun }
+      }
+
+      throw new Error(`Unexpected statement key: ${key}`)
+    })
+
+    updateMessage.call(service, 'message-1', { content: 'after' })
+
+    expect(transaction).toHaveBeenCalledTimes(1)
+    expect(updateRun).toHaveBeenCalledWith('after', null, null, 'message-1')
+    expect(touchRun).toHaveBeenCalledWith(3_000, 'message-1')
+    nowSpy.mockRestore()
+  })
+
+  it('bumps conversation updated_at when deleting messages from a cutoff', () => {
+    const get = vi.fn(() => ({ rowid: 7 }))
+    const deleteRun = vi.fn()
+    const touchRun = vi.fn()
+    const transaction = vi.fn((fn: () => void) => fn)
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(4_000)
+    const service = Object.create(ConversationService.prototype) as MutationHarness
+
+    service.db = { transaction }
+    service.stmt = vi.fn((key: string, sql: string) => {
+      if (key === 'getConversationMessage') {
+        expect(sql).toContain('SELECT rowid FROM messages')
+        return { get }
+      }
+
+      if (key === 'deleteMessagesFrom') {
+        expect(sql).toContain('DELETE FROM messages')
+        return { run: deleteRun }
+      }
+
+      if (key === 'touchConversation') {
+        expect(sql).toContain('UPDATE conversations SET updated_at = ? WHERE id = ?')
+        return { run: touchRun }
+      }
+
+      throw new Error(`Unexpected statement key: ${key}`)
+    })
+
+    deleteMessagesFrom.call(service, 'conv-1', 'message-1')
+
+    expect(transaction).toHaveBeenCalledTimes(1)
+    expect(get).toHaveBeenCalledWith('message-1', 'conv-1')
+    expect(deleteRun).toHaveBeenCalledWith('conv-1', 7)
+    expect(touchRun).toHaveBeenCalledWith(4_000, 'conv-1')
+    nowSpy.mockRestore()
   })
 })

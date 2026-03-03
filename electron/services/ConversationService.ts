@@ -207,6 +207,26 @@ export class ConversationService {
       : `${base} (Fork)`
   }
 
+  private touchConversation(conversationId: string, updatedAt: number): void {
+    this.stmt(
+      'touchConversation',
+      'UPDATE conversations SET updated_at = ? WHERE id = ?'
+    ).run(updatedAt, conversationId)
+  }
+
+  private touchConversationForMessage(messageId: string, updatedAt: number): void {
+    this.stmt(
+      'touchConversationForMessage',
+      `UPDATE conversations
+       SET updated_at = ?
+       WHERE id = (
+         SELECT conversation_id
+         FROM messages
+         WHERE id = ?
+       )`
+    ).run(updatedAt, messageId)
+  }
+
   // ─── Prepared Statement Cache ─────────────────────────────────────────────
 
   private stmt(key: string, sql: string): Database.Statement {
@@ -409,7 +429,7 @@ export class ConversationService {
   listMessages(conversationId: string): Message[] {
     const rows = this.stmt(
       'listMessages',
-      'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC'
+      'SELECT * FROM messages WHERE conversation_id = ? ORDER BY rowid ASC'
     ).all(conversationId) as Record<string, unknown>[]
 
     return rows.map(r => this.toMessage(r))
@@ -438,10 +458,7 @@ export class ConversationService {
       )
 
       // Bump parent conversation's updatedAt
-      this.stmt(
-        'bumpConversation',
-        'UPDATE conversations SET updated_at = ? WHERE id = ?'
-      ).run(now, data.conversationId)
+      this.touchConversation(data.conversationId, now)
     })
 
     createInTransaction()
@@ -455,33 +472,58 @@ export class ConversationService {
   }
 
   updateMessage(id: string, data: Partial<Message>): void {
-    this.stmt(
-      'updateMessage',
-      `UPDATE messages SET
-        content = COALESCE(?, content),
-        thinking = COALESCE(?, thinking),
-        tool_calls = COALESCE(?, tool_calls)
-       WHERE id = ?`
-    ).run(
-      data.content ?? null,
-      data.thinking ?? null,
-      data.toolCalls ?? null,
-      id
-    )
+    const shouldUpdateMessage =
+      data.content !== undefined ||
+      data.thinking !== undefined ||
+      data.toolCalls !== undefined
+
+    if (!shouldUpdateMessage) return
+
+    const now = Date.now()
+
+    const updateInTransaction = this.db.transaction(() => {
+      const result = this.stmt(
+        'updateMessage',
+        `UPDATE messages SET
+          content = COALESCE(?, content),
+          thinking = COALESCE(?, thinking),
+          tool_calls = COALESCE(?, tool_calls)
+         WHERE id = ?`
+      ).run(
+        data.content ?? null,
+        data.thinking ?? null,
+        data.toolCalls ?? null,
+        id
+      )
+
+      if (result.changes > 0) {
+        this.touchConversationForMessage(id, now)
+      }
+    })
+
+    updateInTransaction()
   }
 
   deleteMessagesFrom(conversationId: string, messageId: string): void {
-    const row = this.stmt(
-      'getConversationMessage',
-      'SELECT rowid FROM messages WHERE id = ? AND conversation_id = ?'
-    ).get(messageId, conversationId) as { rowid: number } | undefined
+    const now = Date.now()
 
-    if (!row) return
+    const deleteInTransaction = this.db.transaction(() => {
+      const row = this.stmt(
+        'getConversationMessage',
+        'SELECT rowid FROM messages WHERE id = ? AND conversation_id = ?'
+      ).get(messageId, conversationId) as { rowid: number } | undefined
 
-    this.stmt(
-      'deleteMessagesFrom',
-      'DELETE FROM messages WHERE conversation_id = ? AND rowid >= ?'
-    ).run(conversationId, row.rowid)
+      if (!row) return
+
+      this.stmt(
+        'deleteMessagesFrom',
+        'DELETE FROM messages WHERE conversation_id = ? AND rowid >= ?'
+      ).run(conversationId, row.rowid)
+
+      this.touchConversation(conversationId, now)
+    })
+
+    deleteInTransaction()
   }
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────

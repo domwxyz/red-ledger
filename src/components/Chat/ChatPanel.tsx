@@ -29,12 +29,6 @@ function hasFileDragPayload(event: React.DragEvent): boolean {
   return Array.from(event.dataTransfer.types).includes('Files')
 }
 
-function resolveDroppedFilePath(file: File): string {
-  const directPath = typeof file.path === 'string' ? file.path : ''
-  if (directPath.length > 0) return directPath
-  return window.redLedger.getPathForFile(file)
-}
-
 export function ChatPanel() {
   const activeConversationId = useConversationStore((s) => s.activeConversationId)
   const isEmptyChatState = !activeConversationId
@@ -96,23 +90,19 @@ export function ChatPanel() {
     const droppedFiles = Array.from(event.dataTransfer.files)
     if (droppedFiles.length === 0) return
 
-    const supportedPaths: string[] = []
+    const supportedFiles: File[] = []
     const unsupportedNames: string[] = []
-    const seenPaths = new Set<string>()
 
     for (const file of droppedFiles) {
       const extension = getFileExtension(file.name)
-      const filePath = resolveDroppedFilePath(file)
-      if (!SUPPORTED_ATTACHMENT_EXTENSIONS.has(extension) || filePath.length === 0) {
+      if (!SUPPORTED_ATTACHMENT_EXTENSIONS.has(extension)) {
         unsupportedNames.push(file.name)
         continue
       }
-      if (seenPaths.has(filePath)) continue
-      seenPaths.add(filePath)
-      supportedPaths.push(filePath)
+      supportedFiles.push(file)
     }
 
-    if (supportedPaths.length === 0) {
+    if (supportedFiles.length === 0) {
       useUIStore.getState().addToast({
         type: 'warning',
         message: 'No supported files found. Use .txt, .md, .pdf, .png, .jpg/.jpeg, .webp, or .gif.'
@@ -122,7 +112,7 @@ export function ChatPanel() {
 
     setIsParsingDrop(true)
     try {
-      const result = await window.redLedger.parseAttachmentFiles(supportedPaths)
+      const result = await window.redLedger.parseAttachmentFiles(supportedFiles)
       if (result.attachments.length > 0) {
         addAttachments(result.attachments)
       }

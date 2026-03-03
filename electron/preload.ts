@@ -1,5 +1,36 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { RedLedgerAPI, StreamChunk } from '../src/types'
+import type { AttachmentParseResult, RedLedgerAPI, StreamChunk } from '../src/types'
+
+function getFileName(value: unknown): string {
+  if (!value || typeof value !== 'object') return 'Unknown file'
+  const record = value as { name?: unknown }
+  return typeof record.name === 'string' && record.name.trim().length > 0
+    ? record.name
+    : 'Unknown file'
+}
+
+function resolveAttachmentPaths(files: File[]): { paths: string[]; unresolved: string[] } {
+  const paths: string[] = []
+  const unresolved: string[] = []
+  const seen = new Set<string>()
+
+  for (const file of files) {
+    try {
+      const filePath = webUtils.getPathForFile(file)
+      if (!filePath) {
+        unresolved.push(getFileName(file))
+        continue
+      }
+      if (seen.has(filePath)) continue
+      seen.add(filePath)
+      paths.push(filePath)
+    } catch {
+      unresolved.push(getFileName(file))
+    }
+  }
+
+  return { paths, unresolved }
+}
 
 /**
  * The preload script exposes a single `window.redLedger` API object.
@@ -134,14 +165,21 @@ const api: RedLedgerAPI = {
   openAttachmentFiles: () =>
     ipcRenderer.invoke('dialog:openAttachmentFiles'),
 
-  parseAttachmentFiles: (filePaths) =>
-    ipcRenderer.invoke('attachment:parseFiles', filePaths),
+  parseAttachmentFiles: async (files) => {
+    const safeFiles = Array.isArray(files) ? files : []
+    const { paths, unresolved } = resolveAttachmentPaths(safeFiles)
 
-  getPathForFile: (file) => {
-    try {
-      return webUtils.getPathForFile(file)
-    } catch {
-      return ''
+    if (paths.length === 0) {
+      return {
+        attachments: [],
+        failed: unresolved
+      }
+    }
+
+    const result = await ipcRenderer.invoke('attachment:parseFiles', paths) as AttachmentParseResult
+    return {
+      attachments: result.attachments,
+      failed: [...result.failed, ...unresolved]
     }
   }
 }

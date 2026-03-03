@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { WorkspaceService } from '../WorkspaceService'
+import { WorkspaceService, type DialogAdapter } from '../WorkspaceService'
 import type { Settings } from '../../../src/types'
 
 const BASE_SETTINGS: Settings = {
@@ -72,5 +72,23 @@ describe('WorkspaceService.writeFile', () => {
 
     expect(existsSync(filePath)).toBe(true)
     expect(readFileSync(filePath)).toEqual(content)
+  })
+
+  it('requires confirmation before appending to an existing file in strict mode', async () => {
+    const strictService = new WorkspaceService(() => ({
+      ...BASE_SETTINGS,
+      strictMode: true
+    }))
+    strictService.setWorkspacePath(workspaceRoot)
+
+    await strictService.writeFile(null, 'logs/app.log', 'line1\n', true)
+
+    const showMessageBox = vi.fn(async () => ({ response: 1 }))
+    const dialog: DialogAdapter = { showMessageBox }
+
+    await strictService.writeFile(dialog, 'logs/app.log', 'line2\n', true)
+
+    expect(showMessageBox).toHaveBeenCalledTimes(1)
+    expect(readFileSync(join(workspaceRoot, 'logs', 'app.log'), 'utf-8')).toBe('line1\nline2\n')
   })
 })
